@@ -17,7 +17,7 @@ def cargar_datos(query):
     except Exception as e:
         return None
 
-# --- SISTEMA DE SEGURIDAD (PIN) ---
+# --- SISTEMA DE SEGURIDAD ---
 if 'autenticado' not in st.session_state:
     st.session_state['autenticado'] = False
 
@@ -32,7 +32,7 @@ if not st.session_state['autenticado']:
             st.error("PIN Incorrecto.")
     st.stop()
 
-# --- MENÚ DE NAVEGACIÓN ---
+# --- MENÚ ---
 st.sidebar.title("Menú El Mulato")
 opcion = st.sidebar.radio("Selecciona una sección:", 
     ["📈 Historial de Ventas", "🍳 Recetas y Costos", "📦 Inventario Real", "🚨 Tablero de Control"])
@@ -42,19 +42,19 @@ if opcion == "📈 Historial de Ventas":
     st.markdown("<h1 style='color: #D4AF37;'>📈 Historial de Ventas</h1>", unsafe_allow_html=True)
     df = cargar_datos("SELECT producto, cantidad_vendida, fecha_inicio, fecha_fin FROM historial_ventas ORDER BY cantidad_vendida DESC")
     if df is not None:
-        st.dataframe(df.round(2), use_container_width=True)
+        # Formateo a 2 decimales para que no confunda al coordinador
+        st.dataframe(df.style.format(precision=2), use_container_width=True)
 
 # --- PÁGINA 2: RECETAS ---
 elif opcion == "🍳 Recetas y Costos":
     st.header("🍳 Configuración de Recetas")
     df = cargar_datos("SELECT * FROM recetas")
     if df is not None:
-        st.dataframe(df.round(2), use_container_width=True)
+        st.dataframe(df.style.format(precision=2), use_container_width=True)
 
-# --- PÁGINA 3: INVENTARIO (CON ACTUALIZADOR) ---
+# --- PÁGINA 3: INVENTARIO ---
 elif opcion == "📦 Inventario Real":
     st.header("📦 Gestión de Stock en Bodega")
-    
     with st.expander("➕ Actualizar Stock (Coordinador)"):
         df_productos = cargar_datos("SELECT producto FROM maestro_insumos ORDER BY producto ASC")
         if df_productos is not None:
@@ -72,23 +72,24 @@ elif opcion == "📦 Inventario Real":
                     st.rerun()
                 except Exception as e:
                     st.error(f"Error: {e}")
-
     df = cargar_datos("SELECT producto, stock_actual FROM maestro_insumos ORDER BY producto ASC")
     if df is not None:
-        st.dataframe(df.round(2), use_container_width=True)
+        st.dataframe(df.style.format(precision=2), use_container_width=True)
 
-# --- PÁGINA 4: TABLERO (ALERTAS CON DECIMALES LIMPIOS) ---
+# --- PÁGINA 4: TABLERO (ARREGLO DEFINITIVO DE CEROS) ---
 elif opcion == "🚨 Tablero de Control":
     st.markdown("<h1 style='color: #FF4B4B;'>🚨 Alertas de Reabastecimiento</h1>", unsafe_allow_html=True)
     df = cargar_datos("SELECT * FROM tablero_control ORDER BY promedio_venta_diario DESC")
     
     if df is not None:
-        # AQUÍ ESTÁ EL ARREGLO DE LOS DECIMALES
-        df = df.round(2) 
-        
         def color_alertas(row):
             if row['alerta'] == 'CRÍTICO': return ['background-color: #ff4b4b; color: white'] * len(row)
             elif row['alerta'] == 'PEDIR': return ['background-color: #fca311; color: black'] * len(row)
             return [''] * len(row)
         
-        st.dataframe(df.style.apply(color_alertas, axis=1), use_container_width=True)
+        # EL TRUCO: Aplicamos formato de 2 decimales y LUEGO los colores
+        st.dataframe(
+            df.style.format(precision=2, subset=['stock_actual', 'promedio_venta_diario', 'pedido_sugerido'])
+            .apply(color_alertas, axis=1), 
+            use_container_width=True
+        )
