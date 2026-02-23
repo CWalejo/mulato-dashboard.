@@ -76,20 +76,46 @@ elif opcion == "📦 Inventario Real":
     if df is not None:
         st.dataframe(df.style.format(precision=2), use_container_width=True)
 
-# --- PÁGINA 4: TABLERO (ARREGLO DEFINITIVO DE CEROS) ---
+# --- PÁGINA 4: TABLERO (LIMPIEZA VISUAL DESDE PYTHON) ---
 elif opcion == "🚨 Tablero de Control":
     st.markdown("<h1 style='color: #FF4B4B;'>🚨 Alertas de Reabastecimiento</h1>", unsafe_allow_html=True)
-    df = cargar_datos("SELECT * FROM tablero_control ORDER BY promedio_venta_diario DESC")
+    
+    # Traemos los datos tal cual están en la vista de Neon
+    df = cargar_datos("SELECT * FROM tablero_control")
     
     if df is not None:
-        def color_alertas(row):
-            if row['alerta'] == 'CRÍTICO': return ['background-color: #ff4b4b; color: white'] * len(row)
-            elif row['alerta'] == 'PEDIR': return ['background-color: #fca311; color: black'] * len(row)
-            return [''] * len(row)
+        # 1. Separamos los datos
+        # Bloque 1: Todo lo que NO empieza por ">>>" (Venta individual)
+        df_lista = df[~df['producto'].str.contains('>>>', na=False)]
         
-        # EL TRUCO: Aplicamos formato de 2 decimales y LUEGO los colores
+        # Bloque 2: Solo los TOTALES que te importan para producción
+        comida_produccion = [
+            '>>> TOTAL PORCIÓN DE BOFE', 
+            '>>> TOTAL PORCIÓN DE RELLENA', 
+            '>>> TOTAL PORCIÓN DE CHORIZO', 
+            '>>> TOTAL POLLO A LA PLANCHA', 
+            '>>> TOTAL SOLOMITO DE CERDO'
+        ]
+        df_totales = df[df['producto'].isin(comida_produccion)]
+
+        # 2. Los unimos para mostrar una sola tabla limpia
+        # Ordenamos la lista por promedio de venta para que lo más importante salga arriba
+        df_lista = df_lista.sort_values(by='promedio_venta_diario', ascending=False)
+        df_final = pd.concat([df_lista, df_totales])
+
+        # 3. Función de colores (ajustada a los nombres exactos de tu vista)
+        def color_alertas(row):
+            # Buscamos la palabra dentro del string por si tiene emojis
+            if 'CRÍTICO' in str(row['alerta']): 
+                return ['background-color: #ff4b4b; color: white'] * len(row)
+            elif 'PEDIR' in str(row['alerta']): 
+                return ['background-color: #fca311; color: black'] * len(row)
+            return [''] * len(row)
+
+        # 4. Renderizado final
         st.dataframe(
-            df.style.format(precision=2, subset=['stock_actual', 'promedio_venta_diario', 'pedido_sugerido'])
+            df_final.style.format(precision=2, subset=['stock_actual', 'promedio_venta_diario', 'venta_real'])
             .apply(color_alertas, axis=1), 
-            use_container_width=True
+            use_container_width=True,
+            hide_index=True # Quitamos los números de la izquierda para que sea más limpio
         )
