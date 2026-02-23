@@ -76,46 +76,51 @@ elif opcion == "📦 Inventario Real":
     if df is not None:
         st.dataframe(df.style.format(precision=2), use_container_width=True)
 
-# --- PÁGINA 4: TABLERO (LIMPIEZA VISUAL DESDE PYTHON) ---
+# --- PÁGINA 4: TABLERO DE CONTROL (ORDENADO Y LIMPIO) ---
 elif opcion == "🚨 Tablero de Control":
-    st.markdown("<h1 style='color: #FF4B4B;'>🚨 Alertas de Reabastecimiento</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='color: #FF4B4B;'>🚨 Tablero de Control y Pedidos</h1>", unsafe_allow_html=True)
     
-    # Traemos los datos tal cual están en la vista de Neon
+    # Traemos la data de Neon (Ya viene con alerta antes que pedido y el orden correcto)
     df = cargar_datos("SELECT * FROM tablero_control")
     
     if df is not None:
-        # 1. Separamos los datos
-        # Bloque 1: Todo lo que NO empieza por ">>>" (Venta individual)
-        df_lista = df[~df['producto'].str.contains('>>>', na=False)]
-        
-        # Bloque 2: Solo los TOTALES que te importan para producción
-        comida_produccion = [
+        # 1. FILTRO DE "REGUERO": Solo dejamos los totales de comida que importan
+        totales_permitidos = [
             '>>> TOTAL PORCIÓN DE BOFE', 
             '>>> TOTAL PORCIÓN DE RELLENA', 
             '>>> TOTAL PORCIÓN DE CHORIZO', 
             '>>> TOTAL POLLO A LA PLANCHA', 
             '>>> TOTAL SOLOMITO DE CERDO'
         ]
-        df_totales = df[df['producto'].isin(comida_produccion)]
+        
+        # Filtramos para no ver >>> TOTAL en licores, solo en lo que definimos arriba
+        df_final = df[ (~df['producto'].str.contains('>>>', na=False)) | (df['producto'].isin(totales_permitidos)) ]
 
-        # 2. Los unimos para mostrar una sola tabla limpia
-        # Ordenamos la lista por promedio de venta para que lo más importante salga arriba
-        df_lista = df_lista.sort_values(by='promedio_venta_diario', ascending=False)
-        df_final = pd.concat([df_lista, df_totales])
-
-        # 3. Función de colores (ajustada a los nombres exactos de tu vista)
-        def color_alertas(row):
-            # Buscamos la palabra dentro del string por si tiene emojis
-            if 'CRÍTICO' in str(row['alerta']): 
+        # 2. DEFINICIÓN DE COLUMNAS VISIBLES (Ocultamos 'bloque' y 'orden_barra')
+        # Aquí definimos el orden de izquierda a derecha para el usuario
+        columnas_visibles = [
+            'producto', 
+            'stock_actual', 
+            'promedio_venta_diario', 
+            'venta_real', 
+            'alerta',           # Semáforo primero
+            'pedido_sugerido'   # Cálculo del Excel después
+        ]
+        
+        # 3. FUNCIÓN DE COLORES (Para resaltar filas Críticas y de Pedir)
+        def aplicar_colores(row):
+            if 'CRÍTICO' in str(row['alerta']):
                 return ['background-color: #ff4b4b; color: white'] * len(row)
-            elif 'PEDIR' in str(row['alerta']): 
+            elif 'PEDIR' in str(row['alerta']):
                 return ['background-color: #fca311; color: black'] * len(row)
             return [''] * len(row)
 
-        # 4. Renderizado final
+        # 4. RENDERIZADO FINAL SIN COLUMNAS TÉCNICAS
         st.dataframe(
-            df_final.style.format(precision=2, subset=['stock_actual', 'promedio_venta_diario', 'venta_real'])
-            .apply(color_alertas, axis=1), 
+            df_final[columnas_visibles].style.format(precision=2, subset=['stock_actual', 'promedio_venta_diario', 'venta_real', 'pedido_sugerido'])
+            .apply(aplicar_colores, axis=1), 
             use_container_width=True,
-            hide_index=True # Quitamos los números de la izquierda para que sea más limpio
+            hide_index=True  # Quita los números de la izquierda
         )
+        
+        st.info("💡 El orden sigue la jerarquía del bar (Aguardientes, Rones, Tequilas...) y termina con la Cocina.")
