@@ -20,29 +20,35 @@ def cargar_datos(query):
         st.error(f"Error: {e}")
         return None
 
-# --- INVENTARIO CRÍTICO ---
+# --- SECCIÓN 1: ALERTAS DE STOCK ---
 st.subheader("🚨 Alertas de Stock (Desde Neon)")
 df_control = cargar_datos("SELECT * FROM tablero_control")
 
-if df_control is not None:
+if df_control is not None and not df_control.empty:
     # Filtramos por los estados que tienes en tu imagen: PEDIR y CRÍTICO
     alertas = df_control[df_control['alerta'].isin(['PEDIR', 'CRÍTICO'])]
-    st.dataframe(alertas, use_container_width=True)
+    if not alertas.empty:
+        st.dataframe(alertas, use_container_width=True)
+    else:
+        st.success("✅ Todo el stock está en niveles óptimos (OK).")
 
-# --- PREDICCIÓN DE VENTAS ---
 st.divider()
+
+# --- SECCIÓN 2: ANÁLISIS DE VENTAS ---
 st.subheader("📈 Análisis de Ventas Pasadas")
-df_ventas = cargar_datos("SELECT * FROM historial_ventas")
+# Usamos 'cantidad_vendida' que es el nombre real en tu tabla historial_ventas
+df_ventas = cargar_datos("SELECT fecha, cantidad_vendida FROM historial_ventas")
 
 if df_ventas is not None and not df_ventas.empty:
-    # Si tienes una columna de fecha, creamos la gráfica
-    if 'fecha' in df_ventas.columns:
-        df_ventas['fecha'] = pd.to_datetime(df_ventas['fecha'])
-        fig = px.line(df_ventas, x='fecha', y='cantidad', title='Tendencia de Ventas', color_discrete_sequence=['#D4AF37'])
-        st.plotly_chart(fig, use_container_width=True)
-        
-        # Predicción simple: Promedio de lo vendido anteriormente
-        prediccion = df_ventas['cantidad'].mean()
-        st.success(f"💡 Basado en semanas pasadas, deberías tener stock para vender aprox: **{int(prediccion)} unidades** el próximo periodo.")
+    # Convertimos fecha a formato tiempo para la gráfica
+    df_ventas['fecha'] = pd.to_datetime(df_ventas['fecha'])
+    
+    # Agrupamos por fecha para sumar las ventas del día
+    ventas_diarias = df_ventas.groupby('fecha')['cantidad_vendida'].sum().reset_index()
+    
+    fig = px.line(ventas_diarias, x='fecha', y='cantidad_vendida', 
+                 title='Tendencia de Ventas (Cantidades totales por día)',
+                 color_discrete_sequence=['#D4AF37'])
+    st.plotly_chart(fig, use_container_width=True)
 else:
-    st.info("Aún no hay datos en 'historial_ventas' para generar una gráfica de predicción.")
+    st.warning("No hay datos suficientes en 'historial_ventas' para mostrar la gráfica.")
