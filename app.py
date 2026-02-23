@@ -18,12 +18,12 @@ def cargar_datos(query):
         st.error(f"Error de conexión: {e}")
         return None
 
-# Sidebar - Menú con todas tus páginas restauradas
+# Sidebar - NUEVO ORDEN SOLICITADO
 st.sidebar.title("Menú El Mulato")
 opcion = st.sidebar.radio("Selecciona una sección:", 
-    ["📈 Historial de Ventas", "🚨 Tablero de Control", "📦 Inventario Real", "🍳 Recetas y Costos"])
+    ["📈 Historial de Ventas", "🍳 Recetas y Costos", "📦 Inventario Real", "🚨 Tablero de Control"])
 
-# --- PÁGINA 1: HISTORIAL (Mes y Medio) ---
+# --- PÁGINA 1: HISTORIAL ---
 if opcion == "📈 Historial de Ventas":
     st.markdown("<h1 style='color: #D4AF37;'>📈 Ventas Acumuladas</h1>", unsafe_allow_html=True)
     st.info("Visualizando datos del periodo: **01/01/2026 al 23/02/2026**")
@@ -31,7 +31,22 @@ if opcion == "📈 Historial de Ventas":
     if df is not None:
         st.dataframe(df, use_container_width=True)
 
-# --- PÁGINA 2: TABLERO (Alertas Inteligentes) ---
+# --- PÁGINA 2: RECETAS (CORREGIDA) ---
+elif opcion == "🍳 Recetas y Costos":
+    st.header("🍳 Configuración de Recetas")
+    # Quitamos el ORDER BY plato para evitar el error de columna inexistente
+    df = cargar_datos("SELECT * FROM recetas")
+    if df is not None:
+        st.dataframe(df, use_container_width=True)
+
+# --- PÁGINA 3: INVENTARIO ---
+elif opcion == "📦 Inventario Real":
+    st.header("📦 Gestión de Stock en Bodega")
+    df = cargar_datos("SELECT producto, stock_actual FROM maestro_insumos ORDER BY producto ASC")
+    if df is not None:
+        st.dataframe(df, use_container_width=True)
+
+# --- PÁGINA 4: TABLERO (ALERTAS) ---
 elif opcion == "🚨 Tablero de Control":
     st.markdown("<h1 style='color: #FF4B4B;'>🚨 Alertas de Reabastecimiento</h1>", unsafe_allow_html=True)
     df = cargar_datos("SELECT * FROM tablero_control ORDER BY promedio_venta_diario DESC")
@@ -41,18 +56,3 @@ elif opcion == "🚨 Tablero de Control":
             elif row['alerta'] == 'PEDIR': return ['background-color: #fca311; color: black'] * len(row)
             return [''] * len(row)
         st.dataframe(df.style.apply(color_alertas, axis=1), use_container_width=True)
-
-# --- PÁGINA 3: INVENTARIO (Stock Físico) ---
-elif opcion == "📦 Inventario Real":
-    st.header("📦 Gestión de Stock en Bodega")
-    df = cargar_datos("SELECT producto, stock_actual FROM maestro_insumos ORDER BY producto ASC")
-    if df is not None:
-        st.write("Estado actual de botellas e insumos:")
-        st.dataframe(df, use_container_width=True)
-
-# --- PÁGINA 4: RECETAS (Costos y Preparación) ---
-elif opcion == "🍳 Recetas y Costos":
-    st.header("🍳 Configuración de Recetas")
-    df = cargar_datos("SELECT * FROM recetas ORDER BY plato ASC")
-    if df is not None:
-        st.dataframe(df, use_container_width=True)
