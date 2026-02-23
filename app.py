@@ -25,7 +25,7 @@ if not st.session_state['autenticado']:
     st.markdown("<h2 style='text-align: center;'>🔐 Acceso Privado - El Mulato</h2>", unsafe_allow_html=True)
     pin_ingresado = st.text_input("Introduce el PIN de 4 dígitos:", type="password")
     if st.button("Ingresar"):
-        if pin_ingresado == "1234":
+        if pin_ingresado == "4321":
             st.session_state['autenticado'] = True
             st.rerun()
         else:
