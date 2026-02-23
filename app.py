@@ -37,10 +37,9 @@ st.sidebar.title("Menú El Mulato")
 opcion = st.sidebar.radio("Selecciona una sección:", 
     ["📈 Historial de Ventas", "🍳 Recetas y Costos", "📦 Inventario Real", "🚨 Tablero de Control"])
 
-# --- PÁGINA 1: HISTORIAL (CON ORDEN DE BARRA) ---
+# --- PÁGINA 1: HISTORIAL ---
 if opcion == "📈 Historial de Ventas":
     st.markdown("<h1 style='color: #D4AF37;'>📈 Historial de Ventas</h1>", unsafe_allow_html=True)
-    
     query_historial = """
         SELECT h.producto, h.cantidad_vendida, h.fecha_inicio, h.fecha_fin 
         FROM historial_ventas h
@@ -56,7 +55,6 @@ if opcion == "📈 Historial de Ventas":
                 ELSE 9 
             END, h.producto ASC
     """
-    
     df = cargar_datos(query_historial)
     if df is not None:
         st.dataframe(df.style.format(precision=2), use_container_width=True, hide_index=True)
@@ -68,11 +66,9 @@ elif opcion == "🍳 Recetas y Costos":
     if df is not None:
         st.dataframe(df.style.format(precision=2), use_container_width=True)
 
-# --- PÁGINA 3: INVENTARIO (CON ORDEN DE BARRA) ---
+# --- PÁGINA 3: INVENTARIO REAL ---
 elif opcion == "📦 Inventario Real":
     st.header("📦 Gestión de Stock en Bodega")
-    
-    # Selector de productos para actualizar
     df_productos = cargar_datos("SELECT producto FROM maestro_insumos ORDER BY producto ASC")
     
     with st.expander("➕ Actualizar Stock (Coordinador)"):
@@ -83,45 +79,4 @@ elif opcion == "📦 Inventario Real":
                 try:
                     conn = psycopg2.connect(DB_URL)
                     cur = conn.cursor()
-                    cur.execute("UPDATE maestro_insumos SET stock_actual = %s WHERE producto = %s", (nuevo_stock, prod_sel))
-                    conn.commit()
-                    cur.close()
-                    conn.close()
-                    st.success(f"¡{prod_sel} actualizado!")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Error: {e}")
-
-    # Tabla de Inventario ordenada por barra
-    query_inventario = """
-        SELECT producto, stock_actual 
-        FROM maestro_insumos 
-        ORDER BY 
-            CASE 
-                WHEN producto LIKE 'Aguardiente%' THEN 1
-                WHEN producto LIKE 'Ron %' THEN 2
-                WHEN producto LIKE 'Tequila %' THEN 3
-                WHEN categoria = 'Licor' THEN 5
-                WHEN categoria = 'Pasantes' THEN 7
-                WHEN categoria = 'Comida' THEN 8
-                ELSE 9 
-            END, producto ASC
-    """
-    
-    df_inv = cargar_datos(query_inventario)
-    if df_inv is not None:
-        st.dataframe(df_inv.style.format(precision=2), use_container_width=True, hide_index=True)
-
-# --- PÁGINA 4: TABLERO DE CONTROL (ORDENADO Y LIMPIO) ---
-elif opcion == "🚨 Tablero de Control":
-    st.markdown("<h1 style='color: #FF4B4B;'>🚨 Tablero de Control y Pedidos</h1>", unsafe_allow_html=True)
-    
-    df = cargar_datos("SELECT * FROM tablero_control")
-    
-    if df is not None:
-        totales_permitidos = [
-            '>>> TOTAL PORCIÓN DE BOFE', 
-            '>>> TOTAL PORCIÓN DE RELLENA', 
-            '>>> TOTAL PORCIÓN DE CHORIZO', 
-            '>>> TOTAL POLLO A LA PLANCHA', 
-            '>>> TOTAL SOLOMITO DE CERDO
+                    cur.execute("UPDATE maestro_insumos SET stock_actual
