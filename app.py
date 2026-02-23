@@ -79,4 +79,58 @@ elif opcion == "📦 Inventario Real":
                 try:
                     conn = psycopg2.connect(DB_URL)
                     cur = conn.cursor()
-                    cur.execute("UPDATE maestro_insumos SET stock_actual
+                    cur.execute("UPDATE maestro_insumos SET stock_actual = %s WHERE producto = %s", (nuevo_stock, prod_sel))
+                    conn.commit()
+                    cur.close()
+                    conn.close()
+                    st.success(f"¡{prod_sel} actualizado!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error: {e}")
+
+    query_inventario = """
+        SELECT producto, stock_actual FROM maestro_insumos 
+        ORDER BY 
+            CASE 
+                WHEN producto LIKE 'Aguardiente%' THEN 1
+                WHEN producto LIKE 'Ron %' THEN 2
+                WHEN producto LIKE 'Tequila %' THEN 3
+                WHEN categoria = 'Licor' THEN 5
+                WHEN categoria = 'Pasantes' THEN 7
+                WHEN categoria = 'Comida' THEN 8
+                ELSE 9 
+            END, producto ASC
+    """
+    df_inv = cargar_datos(query_inventario)
+    if df_inv is not None:
+        st.dataframe(df_inv.style.format(precision=2), use_container_width=True, hide_index=True)
+
+# --- PÁGINA 4: TABLERO DE CONTROL ---
+elif opcion == "🚨 Tablero de Control":
+    st.markdown("<h1 style='color: #FF4B4B;'>🚨 Tablero de Control y Pedidos</h1>", unsafe_allow_html=True)
+    df = cargar_datos("SELECT * FROM tablero_control")
+    
+    if df is not None:
+        totales_permitidos = [
+            '>>> TOTAL PORCIÓN DE BOFE', 
+            '>>> TOTAL PORCIÓN DE RELLENA', 
+            '>>> TOTAL PORCIÓN DE CHORIZO', 
+            '>>> TOTAL POLLO A LA PLANCHA', 
+            '>>> TOTAL SOLOMITO DE CERDO'
+        ]
+        
+        df_final = df[ (~df['producto'].str.contains('>>>', na=False)) | (df['producto'].isin(totales_permitidos)) ]
+
+        columnas_visibles = ['producto', 'stock_actual', 'promedio_venta_diario', 'venta_real', 'alerta', 'pedido_sugerido']
+        
+        def aplicar_colores(row):
+            if 'CRÍTICO' in str(row['alerta']): return ['background-color: #ff4b4b; color: white'] * len(row)
+            elif 'PEDIR' in str(row['alerta']): return ['background-color: #fca311; color: black'] * len(row)
+            return [''] * len(row)
+
+        st.dataframe(
+            df_final[columnas_visibles].style.format(precision=2, subset=['stock_actual', 'promedio_venta_diario', 'venta_real', 'pedido_sugerido'])
+            .apply(aplicar_colores, axis=1), 
+            use_container_width=True, hide_index=True
+        )
+        st.info("💡 El orden sigue la jerarquía del bar y termina con la Cocina.")
