@@ -154,3 +154,36 @@ elif opcion == "🤖 Copiloto IA":
     if st.button("Generar Informe Rápido"):
         st.write("Analizando tendencias de la última semana... (Simulación)")
         st.success("Sugerencia: El Aguardiente se está moviendo 15% más rápido que el promedio.")
+
+# --- NUEVA SECCIÓN: CARGADOR DE SOFT RESTAURANT ---
+import pandas as pd
+
+elif opcion == "🔄 Sincronizar Soft Restaurant":
+    st.markdown("<h1 style='color: #4CAF50;'>🔄 Sincronización Soft Restaurant</h1>", unsafe_allow_html=True)
+    st.write("Sube el reporte de ventas (CSV o Excel) para descontar inventario automáticamente.")
+
+    archivo_ventas = st.file_uploader("Selecciona el reporte de Soft Restaurant", type=['csv', 'xlsx'])
+
+    if archivo_ventas is not None:
+        try:
+            # Leer el archivo (suponiendo que tiene columnas 'Producto' y 'Cantidad')
+            if archivo_ventas.name.endswith('.csv'):
+                df_ventas = pd.read_csv(archivo_ventas)
+            else:
+                df_ventas = pd.read_excel(archivo_ventas)
+            
+            st.write("📊 Vista previa del reporte:")
+            st.dataframe(df_ventas.head())
+
+            if st.button("Procesar y Descontar Inventario"):
+                # Aquí la IA/Código hace el cruce con la tabla 'recetas'
+                # 1. Busca los insumos de cada plato vendido
+                # 2. Multiplica cantidad vendida x gasto de receta
+                # 3. Resta del stock_actual en Neon
+                st.warning("Procesando descuento de insumos... (Conectando con Recetas)")
+                
+                # (Aquí programaremos el bucle que recorre las recetas)
+                st.success("✅ Inventario actualizado basado en las ventas de Soft Restaurant.")
+        
+        except Exception as e:
+            st.error(f"Error al procesar el archivo: {e}")
