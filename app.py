@@ -35,7 +35,7 @@ if not st.session_state['autenticado']:
 # --- MENÚ ---
 st.sidebar.title("Menú El Mulato")
 opcion = st.sidebar.radio("Selecciona una sección:", 
-    ["📈 Historial de Ventas", "🍳 Recetas y Costos", "📦 Inventario Real", "🚨 Tablero de Control"])
+    ["📈 Historial de Ventas", "🍳 Recetas y Costos", "📦 Inventario Real", "🚨 Tablero de Control", "🤖 Copiloto IA"])
 
 # --- PÁGINA 1: HISTORIAL ---
 if opcion == "📈 Historial de Ventas":
@@ -133,4 +133,24 @@ elif opcion == "🚨 Tablero de Control":
             .apply(aplicar_colores, axis=1), 
             use_container_width=True, hide_index=True
         )
-        st.info("💡 El orden sigue la jerarquía del bar y termina con la Cocina.")
+        st.info("💡 El orden sigue la jerarquía del bar y termina con la Cocina.") 
+        
+        # --- PÁGINA 5: COPILOTO IA (PROXIMAMENTE) ---
+elif opcion == "🤖 Copiloto IA":
+    st.markdown("<h1 style='color: #4A90E2;'>🤖 Copiloto IA - El Mulato</h1>", unsafe_allow_html=True)
+    
+    st.info("""
+    ### 🧠 ¿Qué está haciendo la IA ahora?
+    Estamos en la fase de **Recolección de Datos**. 
+    Para que la IA aprenda, necesita observar cómo manejas el inventario durante unos días.
+    
+    **Próximas funciones:**
+    1. Análisis de fugas (Stock que falta y no se vendió).
+    2. Predicción de agotados antes de que sucedan.
+    3. Recomendación de compras inteligente.
+    """)
+    
+    # Aquí es donde conectaremos el "cerebro" más adelante
+    if st.button("Generar Informe Rápido"):
+        st.write("Analizando tendencias de la última semana... (Simulación)")
+        st.success("Sugerencia: El Aguardiente se está moviendo 15% más rápido que el promedio.")
