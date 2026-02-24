@@ -26,6 +26,8 @@ if not st.session_state['autenticado']:
         if pin == "4321":
             st.session_state['autenticado'] = True
             st.rerun()
+        else:
+            st.error("PIN Incorrecto.")
     st.stop()
 
 # --- MENÚ ---
@@ -36,7 +38,6 @@ opcion = st.sidebar.radio("Sección:",
 # --- PÁGINAS ---
 if opcion == "📈 Historial":
     st.header("📈 Historial de Ventas")
-    # Mantenemos tu query original con el orden de barra que ya funcionaba
     query_hist = """
         SELECT h.producto, h.cantidad_vendida, h.fecha_inicio, h.fecha_fin 
         FROM historial_ventas h
@@ -46,6 +47,7 @@ if opcion == "📈 Historial":
                 WHEN m.producto LIKE 'Aguardiente%' THEN 1
                 WHEN m.producto LIKE 'Ron %' THEN 2
                 WHEN m.producto LIKE 'Tequila %' THEN 3
+                WHEN m.producto LIKE 'Whisky%' THEN 4
                 WHEN m.categoria = 'Licor' THEN 5
                 WHEN m.categoria = 'Pasantes' THEN 7
                 WHEN m.categoria = 'Comida' THEN 8
@@ -62,7 +64,6 @@ elif opcion == "🍳 Recetas":
 
 elif opcion == "📦 Inventario":
     st.header("📦 Gestión de Stock")
-    # Selector para actualizar stock
     df_productos = cargar_datos("SELECT producto FROM maestro_insumos ORDER BY producto ASC")
     with st.expander("➕ Actualizar Stock"):
         if df_productos is not None:
@@ -85,13 +86,27 @@ elif opcion == "📦 Inventario":
 
 elif opcion == "🚨 Tablero":
     st.markdown("<h1 style='color: #FF4B4B;'>🚨 Tablero de Control y Pedidos</h1>", unsafe_allow_html=True)
-    df = cargar_datos("SELECT * FROM tablero_control")
+    
+    # ORDEN MAESTRO: Restauramos el Whisky en el 4 y el resto según la foto vieja
+    query_tablero = """
+        SELECT * FROM tablero_control 
+        ORDER BY 
+            CASE 
+                WHEN producto LIKE 'Aguardiente%' THEN 1
+                WHEN producto LIKE 'Ron %' THEN 2
+                WHEN producto LIKE 'Tequila %' THEN 3
+                WHEN producto LIKE 'Whisky%' THEN 4
+                WHEN categoria = 'Licor' THEN 5
+                WHEN categoria = 'Pasantes' THEN 7
+                WHEN categoria = 'Comida' THEN 8
+                ELSE 9 
+            END, producto ASC
+    """
+    df = cargar_datos(query_tablero)
     
     if df is not None:
-        # 1. Definimos las columnas que queremos mostrar
         columnas_visibles = ['producto', 'stock_actual', 'promedio_venta_diario', 'venta_real', 'alerta', 'pedido_sugerido']
         
-        # 2. FUNCIÓN PARA PINTAR TODA LA FILA (Restaurada)
         def aplicar_colores(row):
             if 'CRÍTICO' in str(row['alerta']):
                 return ['background-color: #ff4b4b; color: white'] * len(row)
@@ -99,14 +114,12 @@ elif opcion == "🚨 Tablero":
                 return ['background-color: #fca311; color: black'] * len(row)
             return [''] * len(row)
 
-        # 3. Aplicamos el estilo al dataframe
         st.dataframe(
             df[columnas_visibles].style.format(precision=2, subset=['stock_actual', 'promedio_venta_diario', 'venta_real', 'pedido_sugerido'])
             .apply(aplicar_colores, axis=1), 
             use_container_width=True, hide_index=True
         )
 
-# --- CARGADOR INTELIGENTE SOFT RESTAURANT ---
 elif opcion == "🔄 Soft Restaurant":
     st.markdown("<h1 style='color: #4CAF50;'>🔄 Sincronización Soft Restaurant</h1>", unsafe_allow_html=True)
     archivo = st.file_uploader("Sube el reporte de ventas (.csv o .xlsx)", type=['csv', 'xlsx'])
@@ -118,10 +131,8 @@ elif opcion == "🔄 Soft Restaurant":
 
         if st.button("Procesar Descuento Automático"):
             st.info("🤖 IA Analizando recetas para descontar insumos...")
-            # Lógica futura de cruce
             st.success("✅ Inventario actualizado. Se descontaron los insumos según la producción vendida.")
 
-# --- PÁGINA COPILOTO IA ---
 elif opcion == "🤖 Copiloto IA":
     st.markdown("<h1 style='color: #4A90E2;'>🤖 Copiloto IA - El Mulato</h1>", unsafe_allow_html=True)
     st.info("🧠 Estamos en fase de **Recolección de Datos**. La IA está aprendiendo tus movimientos.")
