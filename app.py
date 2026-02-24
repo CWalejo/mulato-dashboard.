@@ -84,13 +84,27 @@ elif opcion == "📦 Inventario":
     if df is not None: st.dataframe(df, use_container_width=True, hide_index=True)
 
 elif opcion == "🚨 Tablero":
-    st.header("🚨 Tablero de Control")
-    # Aquí llamamos a tu VISTA de Neon que ya tiene el orden y las alertas
+    st.markdown("<h1 style='color: #FF4B4B;'>🚨 Tablero de Control y Pedidos</h1>", unsafe_allow_html=True)
     df = cargar_datos("SELECT * FROM tablero_control")
+    
     if df is not None:
-        # El orden de columnas que pediste: Alerta ANTES de Pedido
-        columnas = ['producto', 'stock_actual', 'promedio_venta_diario', 'venta_real', 'alerta', 'pedido_sugerido']
-        st.dataframe(df[columnas], use_container_width=True, hide_index=True)
+        # 1. Definimos las columnas que queremos mostrar
+        columnas_visibles = ['producto', 'stock_actual', 'promedio_venta_diario', 'venta_real', 'alerta', 'pedido_sugerido']
+        
+        # 2. FUNCIÓN PARA PINTAR TODA LA FILA (Restaurada)
+        def aplicar_colores(row):
+            if 'CRÍTICO' in str(row['alerta']):
+                return ['background-color: #ff4b4b; color: white'] * len(row)
+            elif 'PEDIR' in str(row['alerta']):
+                return ['background-color: #fca311; color: black'] * len(row)
+            return [''] * len(row)
+
+        # 3. Aplicamos el estilo al dataframe
+        st.dataframe(
+            df[columnas_visibles].style.format(precision=2, subset=['stock_actual', 'promedio_venta_diario', 'venta_real', 'pedido_sugerido'])
+            .apply(aplicar_colores, axis=1), 
+            use_container_width=True, hide_index=True
+        )
 
 # --- CARGADOR INTELIGENTE SOFT RESTAURANT ---
 elif opcion == "🔄 Soft Restaurant":
