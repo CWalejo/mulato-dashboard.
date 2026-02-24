@@ -26,8 +26,6 @@ if not st.session_state['autenticado']:
         if pin == "4321":
             st.session_state['autenticado'] = True
             st.rerun()
-        else:
-            st.error("PIN Incorrecto.")
     st.stop()
 
 # --- MENÚ ---
@@ -47,7 +45,6 @@ if opcion == "📈 Historial":
                 WHEN m.producto LIKE 'Aguardiente%' THEN 1
                 WHEN m.producto LIKE 'Ron %' THEN 2
                 WHEN m.producto LIKE 'Tequila %' THEN 3
-                WHEN m.producto LIKE 'Whisky%' THEN 4
                 WHEN m.categoria = 'Licor' THEN 5
                 WHEN m.categoria = 'Pasantes' THEN 7
                 WHEN m.categoria = 'Comida' THEN 8
@@ -86,28 +83,11 @@ elif opcion == "📦 Inventario":
 
 elif opcion == "🚨 Tablero":
     st.markdown("<h1 style='color: #FF4B4B;'>🚨 Tablero de Control y Pedidos</h1>", unsafe_allow_html=True)
-    
-    # RESTAURAMOS EL ORDEN DE TU FOTO ORIGINAL (1-Aguardiente, 4-Whisky, etc.)
-    query_tablero = """
-        SELECT * FROM tablero_control 
-        ORDER BY 
-            CASE 
-                WHEN producto LIKE 'Aguardiente%' THEN 1
-                WHEN producto LIKE 'Ron %' THEN 2
-                WHEN producto LIKE 'Tequila %' THEN 3
-                WHEN producto LIKE 'Whisky%' THEN 4
-                WHEN categoria = 'Licor' THEN 5
-                WHEN categoria = 'Pasantes' THEN 7
-                WHEN categoria = 'Comida' THEN 8
-                ELSE 9 
-            END, producto ASC
-    """
-    df = cargar_datos(query_tablero)
+    df = cargar_datos("SELECT * FROM tablero_control")
     
     if df is not None:
         columnas_visibles = ['producto', 'stock_actual', 'promedio_venta_diario', 'venta_real', 'alerta', 'pedido_sugerido']
         
-        # RESTAURAMOS COLORES DE FILA SEGÚN ALERTA
         def aplicar_colores(row):
             if 'CRÍTICO' in str(row['alerta']):
                 return ['background-color: #ff4b4b; color: white'] * len(row)
@@ -126,11 +106,10 @@ elif opcion == "🔄 Soft Restaurant":
     archivo = st.file_uploader("Sube el reporte de ventas (.csv o .xlsx)", type=['csv', 'xlsx'])
     if archivo:
         df_v = pd.read_csv(archivo) if archivo.name.endswith('.csv') else pd.read_excel(archivo)
-        st.write("📊 Ventas detectadas en el reporte:")
+        st.write("📊 Ventas detectadas:")
         st.dataframe(df_v.head())
-        if st.button("Procesar Descuento Automático"):
-            st.info("🤖 IA Analizando recetas para descontar insumos...")
-            st.success("✅ Inventario actualizado exitosamente.")
+        if st.button("Procesar"):
+            st.success("Procesado.")
 
 elif opcion == "🤖 Copiloto IA":
     st.markdown("<h1 style='color: #4A90E2;'>🤖 Copiloto IA - El Mulato</h1>", unsafe_allow_html=True)
