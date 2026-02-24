@@ -86,6 +86,8 @@ elif opcion == "📦 Inventario":
 
 elif opcion == "🚨 Tablero":
     st.markdown("<h1 style='color: #FF4B4B;'>🚨 Tablero de Control y Pedidos</h1>", unsafe_allow_html=True)
+    
+    # RESTAURAMOS EL ORDEN DE TU FOTO ORIGINAL (1-Aguardiente, 4-Whisky, etc.)
     query_tablero = """
         SELECT * FROM tablero_control 
         ORDER BY 
@@ -101,14 +103,18 @@ elif opcion == "🚨 Tablero":
             END, producto ASC
     """
     df = cargar_datos(query_tablero)
+    
     if df is not None:
         columnas_visibles = ['producto', 'stock_actual', 'promedio_venta_diario', 'venta_real', 'alerta', 'pedido_sugerido']
+        
+        # RESTAURAMOS COLORES DE FILA SEGÚN ALERTA
         def aplicar_colores(row):
             if 'CRÍTICO' in str(row['alerta']):
                 return ['background-color: #ff4b4b; color: white'] * len(row)
             elif 'PEDIR' in str(row['alerta']):
                 return ['background-color: #fca311; color: black'] * len(row)
             return [''] * len(row)
+
         st.dataframe(
             df[columnas_visibles].style.format(precision=2, subset=['stock_actual', 'promedio_venta_diario', 'venta_real', 'pedido_sugerido'])
             .apply(aplicar_colores, axis=1), 
@@ -128,4 +134,4 @@ elif opcion == "🔄 Soft Restaurant":
 
 elif opcion == "🤖 Copiloto IA":
     st.markdown("<h1 style='color: #4A90E2;'>🤖 Copiloto IA - El Mulato</h1>", unsafe_allow_html=True)
-    st.info("🧠 Estamos en fase de **Recolección de Datos**. La IA está aprendiendo tus movimientos.")
+    st.info("🧠 Fase de Recolección de Datos activa.")
