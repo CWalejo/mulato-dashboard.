@@ -113,4 +113,4 @@ elif opcion == "🔄 Soft Restaurant":
 
 elif opcion == "🤖 Copiloto IA":
     st.markdown("<h1 style='color: #4A90E2;'>🤖 Copiloto IA - El Mulato</h1>", unsafe_allow_html=True)
-    st.info("🧠 Fase de análisis inteligente de datos y patrones de movimiento")
+    st.info("🧠 En fase de análisis inteligente de datos y patrones de movimiento")
