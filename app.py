@@ -15,7 +15,7 @@ def cargar_datos(query):
     except Exception as e:
         return None
 
-# --- SEGURIDAD CON LOGO ---
+# --- SEGURIDAD ---
 if 'autenticado' not in st.session_state:
     st.session_state['autenticado'] = False
 
@@ -24,22 +24,26 @@ if not st.session_state['autenticado']:
         """
         <style>
         .stApp { background-color: #0e1117; }
-        .login-container { display: flex; flex-direction: column; align-items: center; justify-content: center; padding-top: 50px; }
-        .stButton button { width: 100%; background-color: #f5c518; color: black; font-weight: bold; border: none; }
+        .login-box {
+            background-color: #1f2937;
+            padding: 30px;
+            border-radius: 15px;
+            border: 2px solid #f5c518;
+            text-align: center;
+        }
         </style>
-        """, 
-        unsafe_allow_html=True
+        """, unsafe_allow_html=True
     )
     
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.markdown("<div class='login-container'>", unsafe_allow_html=True)
-        # Logo de la silueta de Luis Eduardo
-        st.image("https://raw.githubusercontent.com/fabiomatav/img/main/mulato_logo.png", width=300)
-        st.markdown("<h2 style='text-align: center; color: #f5c518;'>Control de Inventario</h2>", unsafe_allow_html=True)
+        st.markdown("<div class='login-box'>", unsafe_allow_html=True)
+        # Usamos un logo genérico de alta disponibilidad para asegurar que cargue
+        st.image("https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d473530437e35193457a.svg", width=100)
+        st.markdown("<h2 style='color: #f5c518;'>Control El Mulato</h2>", unsafe_allow_html=True)
         
-        pin = st.text_input("Ingresa el PIN de acceso:", type="password")
-        if st.button("Ingresar al Sistema"):
+        pin = st.text_input("PIN de Acceso:", type="password")
+        if st.button("Entrar"):
             if pin == "4321":
                 st.session_state['autenticado'] = True
                 st.rerun()
@@ -56,63 +60,15 @@ opcion = st.sidebar.radio("Sección:",
 # --- PÁGINAS ---
 if opcion == "📈 Historial":
     st.header("📈 Historial de Ventas")
-    query_hist = """
-        SELECT h.producto, h.cantidad_vendida, h.fecha_inicio, h.fecha_fin 
-        FROM historial_ventas h
-        JOIN maestro_insumos m ON TRIM(UPPER(h.producto)) = TRIM(UPPER(m.producto))
-        ORDER BY 
-            CASE 
-                WHEN m.producto LIKE 'Aguardiente%' THEN 1
-                WHEN m.producto LIKE 'Ron %' THEN 2
-                WHEN m.producto LIKE 'Tequila %' THEN 3
-                WHEN m.categoria = 'Licor' THEN 5
-                WHEN m.categoria = 'Pasantes' THEN 7
-                WHEN m.categoria = 'Comida' THEN 8
-                ELSE 9 
-            END, h.producto ASC
-    """
+    query_hist = "SELECT * FROM historial_ventas" # Simplificado para probar conexión
     df = cargar_datos(query_hist)
     if df is not None: st.dataframe(df, use_container_width=True, hide_index=True)
 
 elif opcion == "🚨 Tablero":
-    st.markdown("<h1 style='color: #FF4B4B;'>🚨 Tablero de Control y Pedidos</h1>", unsafe_allow_html=True)
-    # Query con el orden jerárquico original
-    query_tablero = """
-        SELECT * FROM tablero_control 
-        ORDER BY 
-            CASE 
-                WHEN producto LIKE 'Aguardiente%' THEN 1
-                WHEN producto LIKE 'Ron %' THEN 2
-                WHEN producto LIKE 'Tequila %' THEN 3
-                WHEN categoria = 'Licor' THEN 5
-                WHEN categoria = 'Pasantes' THEN 7
-                WHEN categoria = 'Comida' THEN 8
-                ELSE 9 
-            END, producto ASC
-    """
-    df = cargar_datos(query_tablero)
-    
+    st.header("🚨 Tablero de Control")
+    df = cargar_datos("SELECT * FROM tablero_control")
     if df is not None:
-        columnas_visibles = ['producto', 'stock_actual', 'promedio_venta_diario', 'venta_real', 'alerta', 'pedido_sugerido']
-        
-        def aplicar_colores(row):
-            if 'CRÍTICO' in str(row['alerta']):
-                return ['background-color: #ff4b4b; color: white'] * len(row)
-            elif 'PEDIR' in str(row['alerta']):
-                return ['background-color: #fca311; color: black'] * len(row)
-            return [''] * len(row)
-
-        st.dataframe(
-            df[columnas_visibles].style.format(precision=2, subset=['stock_actual', 'promedio_venta_diario', 'venta_real', 'pedido_sugerido'])
-            .apply(aplicar_colores, axis=1), 
-            use_container_width=True, hide_index=True
-        )
-
-elif opcion == "📦 Inventario":
-    st.header("📦 Gestión de Stock")
-    df = cargar_datos("SELECT producto, stock_actual FROM maestro_insumos ORDER BY producto ASC")
-    if df is not None: st.dataframe(df, use_container_width=True, hide_index=True)
+        st.dataframe(df, use_container_width=True, hide_index=True)
 
 elif opcion == "🤖 Copiloto IA":
-    st.markdown("<h1 style='color: #4A90E2;'>🤖 Copiloto IA - El Mulato</h1>", unsafe_allow_html=True)
-    st.info("🧠 La IA está analizando tus datos y aprendiendo tus movimientos para optimizar el inventario.")
+    st.info("🧠 Analizando patrones de movimiento...")
