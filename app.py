@@ -2,59 +2,9 @@ import streamlit as st
 import pandas as pd
 import psycopg2
 
-# 1. Configuración de la App
+# 1. Configuración
 st.set_page_config(page_title="El Mulato - Sistema Inteligente", layout="wide")
 DB_URL = "postgresql://neondb_owner:npg_2YMloHQwec0b@ep-lucky-cloud-aihu085f-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require"
-
-# --- DISEÑO GLOBAL: EL MULATO EN TODO LUGAR ---
-def aplicar_estilo_mulato():
-    st.markdown(
-        """
-        <style>
-        /* Fondo con la silueta del Mulato fija en el centro */
-        .stApp {
-            background-image: url("https://raw.githubusercontent.com/fabiomatav/img/main/mulato_logo.png");
-            background-attachment: fixed;
-            background-size: 600px; /* Ajusta el tamaño de la silueta aquí */
-            background-position: center;
-            background-repeat: no-repeat;
-            background-color: #0e1117; /* Fondo oscuro base */
-        }
-        
-        /* Capa oscura para que el texto se lea bien sobre la imagen */
-        .stApp::before {
-            content: "";
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background-color: rgba(14, 17, 23, 0.85); /* Oscurece el fondo */
-            z-index: -1;
-        }
-
-        /* Estilo para tablas y contenedores para que resalten */
-        .stDataFrame, .stMarkdown, div[data-testid="stExpander"] {
-            background-color: rgba(30, 30, 30, 0.9) !important;
-            padding: 10px;
-            border-radius: 10px;
-            border: 1px solid #f5c518;
-        }
-
-        /* Títulos en dorado Mulato */
-        h1, h2, h3 {
-            color: #f5c518 !important;
-        }
-        
-        /* Botones personalizados */
-        .stButton button {
-            background-color: #f5c518 !important;
-            color: black !important;
-            font-weight: bold;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-
-aplicar_estilo_mulato()
 
 def cargar_datos(query):
     try:
@@ -70,37 +20,74 @@ if 'autenticado' not in st.session_state:
     st.session_state['autenticado'] = False
 
 if not st.session_state['autenticado']:
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.markdown("<br><br><h2 style='text-align: center;'>🔐 Acceso El Mulato</h2>", unsafe_allow_html=True)
-        pin = st.text_input("PIN:", type="password")
-        if st.button("Ingresar"):
-            if pin == "4321":
-                st.session_state['autenticado'] = True
-                st.rerun()
-            else:
-                st.error("PIN Incorrecto")
+    st.markdown("<h2 style='text-align: center;'>🔐 Acceso Privado - El Mulato</h2>", unsafe_allow_html=True)
+    pin = st.text_input("PIN:", type="password")
+    if st.button("Ingresar"):
+        if pin == "4321":
+            st.session_state['autenticado'] = True
+            st.rerun()
     st.stop()
 
 # --- MENÚ ---
-st.sidebar.title("Menú Principal")
-opcion = st.sidebar.radio("Ir a:", ["🚨 Tablero", "📦 Inventario", "📈 Historial", "🤖 Copiloto IA"])
+st.sidebar.title("Menú El Mulato")
+opcion = st.sidebar.radio("Sección:", 
+    ["📈 Historial", "🍳 Recetas", "📦 Inventario", "🚨 Tablero", "🔄 Soft Restaurant", "🤖 Copiloto IA"])
 
-# --- TABLERO (Restaurado con tu lógica de colores) ---
-if opcion == "🚨 Tablero":
-    st.header("🚨 Tablero de Control y Pedidos")
-    query = """
-        SELECT * FROM tablero_control 
+# --- PÁGINAS ---
+if opcion == "📈 Historial":
+    st.header("📈 Historial de Ventas")
+    query_hist = """
+        SELECT h.producto, h.cantidad_vendida, h.fecha_inicio, h.fecha_fin 
+        FROM historial_ventas h
+        JOIN maestro_insumos m ON TRIM(UPPER(h.producto)) = TRIM(UPPER(m.producto))
         ORDER BY 
             CASE 
-                WHEN producto LIKE 'Aguardiente%' THEN 1
-                WHEN producto LIKE 'Ron %' THEN 2
-                WHEN categoria = 'Licor' THEN 5
+                WHEN m.producto LIKE 'Aguardiente%' THEN 1
+                WHEN m.producto LIKE 'Ron %' THEN 2
+                WHEN m.producto LIKE 'Tequila %' THEN 3
+                WHEN m.categoria = 'Licor' THEN 5
+                WHEN m.categoria = 'Pasantes' THEN 7
+                WHEN m.categoria = 'Comida' THEN 8
                 ELSE 9 
-            END, producto ASC
+            END, h.producto ASC
     """
-    df = cargar_datos(query)
+    df = cargar_datos(query_hist)
+    if df is not None: st.dataframe(df, use_container_width=True, hide_index=True)
+
+elif opcion == "🍳 Recetas":
+    st.header("🍳 Configuración de Recetas")
+    df = cargar_datos("SELECT * FROM recetas")
+    if df is not None: st.dataframe(df, use_container_width=True, hide_index=True)
+
+elif opcion == "📦 Inventario":
+    st.header("📦 Gestión de Stock")
+    df_productos = cargar_datos("SELECT producto FROM maestro_insumos ORDER BY producto ASC")
+    with st.expander("➕ Actualizar Stock"):
+        if df_productos is not None:
+            prod_sel = st.selectbox("Producto:", df_productos['producto'])
+            nuevo_stock = st.number_input("Nuevo Stock:", min_value=0.0)
+            if st.button("Guardar"):
+                try:
+                    conn = psycopg2.connect(DB_URL)
+                    cur = conn.cursor()
+                    cur.execute("UPDATE maestro_insumos SET stock_actual = %s WHERE producto = %s", (nuevo_stock, prod_sel))
+                    conn.commit()
+                    cur.close()
+                    conn.close()
+                    st.success("¡Actualizado!")
+                    st.rerun()
+                except Exception as e: st.error(e)
+
+    df = cargar_datos("SELECT producto, stock_actual FROM maestro_insumos ORDER BY producto ASC")
+    if df is not None: st.dataframe(df, use_container_width=True, hide_index=True)
+
+elif opcion == "🚨 Tablero":
+    st.markdown("<h1 style='color: #FF4B4B;'>🚨 Tablero de Control y Pedidos</h1>", unsafe_allow_html=True)
+    df = cargar_datos("SELECT * FROM tablero_control")
+    
     if df is not None:
+        columnas_visibles = ['producto', 'stock_actual', 'promedio_venta_diario', 'venta_real', 'alerta', 'pedido_sugerido']
+        
         def aplicar_colores(row):
             if 'CRÍTICO' in str(row['alerta']):
                 return ['background-color: #ff4b4b; color: white'] * len(row)
@@ -109,18 +96,21 @@ if opcion == "🚨 Tablero":
             return [''] * len(row)
 
         st.dataframe(
-            df[['producto', 'stock_actual', 'promedio_venta_diario', 'venta_real', 'alerta', 'pedido_sugerido']]
-            .style.apply(aplicar_colores, axis=1), 
+            df[columnas_visibles].style.format(precision=2, subset=['stock_actual', 'promedio_venta_diario', 'venta_real', 'pedido_sugerido'])
+            .apply(aplicar_colores, axis=1), 
             use_container_width=True, hide_index=True
         )
 
-# --- INVENTARIO ---
-elif opcion == "📦 Inventario":
-    st.header("📦 Gestión de Stock")
-    df = cargar_datos("SELECT producto, stock_actual FROM maestro_insumos ORDER BY producto ASC")
-    if df is not None:
-        st.dataframe(df, use_container_width=True, hide_index=True)
+elif opcion == "🔄 Soft Restaurant":
+    st.markdown("<h1 style='color: #4CAF50;'>🔄 Sincronización Soft Restaurant</h1>", unsafe_allow_html=True)
+    archivo = st.file_uploader("Sube el reporte de ventas (.csv o .xlsx)", type=['csv', 'xlsx'])
+    if archivo:
+        df_v = pd.read_csv(archivo) if archivo.name.endswith('.csv') else pd.read_excel(archivo)
+        st.write("📊 Ventas detectadas:")
+        st.dataframe(df_v.head())
+        if st.button("Procesar"):
+            st.success("Procesado.")
 
-# --- RESTO DE PÁGINAS ---
-else:
-    st.info(f"Sección {opcion} cargada. La silueta del Mulato te acompaña de fondo.")
+elif opcion == "🤖 Copiloto IA":
+    st.markdown("<h1 style='color: #4A90E2;'>🤖 Copiloto IA - El Mulato</h1>", unsafe_allow_html=True)
+    st.info("🧠 En fase de análisis inteligente de datos y patrones de movimiento")
