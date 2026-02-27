@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import psycopg2
 
-# 1. Configuración
+# 1. Configuración de la App
 st.set_page_config(page_title="El Mulato - Sistema Inteligente", layout="wide")
 DB_URL = "postgresql://neondb_owner:npg_2YMloHQwec0b@ep-lucky-cloud-aihu085f-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require"
 
@@ -15,7 +15,7 @@ def cargar_datos(query):
     except Exception as e:
         return None
 
-# --- SEGURIDAD CON LOGO ESTABLE ---
+# --- SEGURIDAD CON LOGO ---
 if 'autenticado' not in st.session_state:
     st.session_state['autenticado'] = False
 
@@ -26,7 +26,6 @@ if not st.session_state['autenticado']:
         .stApp { background-color: #0e1117; }
         .login-container { display: flex; flex-direction: column; align-items: center; justify-content: center; padding-top: 50px; }
         .stButton button { width: 100%; background-color: #f5c518; color: black; font-weight: bold; border: none; }
-        .stButton button:hover { background-color: #ffdb4d; color: black; }
         </style>
         """, 
         unsafe_allow_html=True
@@ -35,7 +34,7 @@ if not st.session_state['autenticado']:
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown("<div class='login-container'>", unsafe_allow_html=True)
-        # LINK ESTABLE DE LA SILUETA DEL MULATO
+        # Logo de la silueta de Luis Eduardo
         st.image("https://raw.githubusercontent.com/fabiomatav/img/main/mulato_logo.png", width=300)
         st.markdown("<h2 style='text-align: center; color: #f5c518;'>Control de Inventario</h2>", unsafe_allow_html=True)
         
@@ -77,7 +76,21 @@ if opcion == "📈 Historial":
 
 elif opcion == "🚨 Tablero":
     st.markdown("<h1 style='color: #FF4B4B;'>🚨 Tablero de Control y Pedidos</h1>", unsafe_allow_html=True)
-    df = cargar_datos("SELECT * FROM tablero_control")
+    # Query con el orden jerárquico original
+    query_tablero = """
+        SELECT * FROM tablero_control 
+        ORDER BY 
+            CASE 
+                WHEN producto LIKE 'Aguardiente%' THEN 1
+                WHEN producto LIKE 'Ron %' THEN 2
+                WHEN producto LIKE 'Tequila %' THEN 3
+                WHEN categoria = 'Licor' THEN 5
+                WHEN categoria = 'Pasantes' THEN 7
+                WHEN categoria = 'Comida' THEN 8
+                ELSE 9 
+            END, producto ASC
+    """
+    df = cargar_datos(query_tablero)
     
     if df is not None:
         columnas_visibles = ['producto', 'stock_actual', 'promedio_venta_diario', 'venta_real', 'alerta', 'pedido_sugerido']
