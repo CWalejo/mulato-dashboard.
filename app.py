@@ -6,6 +6,56 @@ import psycopg2
 st.set_page_config(page_title="El Mulato - Sistema Inteligente", layout="wide")
 DB_URL = "postgresql://neondb_owner:npg_2YMloHQwec0b@ep-lucky-cloud-aihu085f-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require"
 
+# --- DISEÑO GLOBAL: EL MULATO EN TODO LUGAR ---
+def aplicar_estilo_mulato():
+    st.markdown(
+        """
+        <style>
+        /* Fondo con la silueta del Mulato fija en el centro */
+        .stApp {
+            background-image: url("https://raw.githubusercontent.com/fabiomatav/img/main/mulato_logo.png");
+            background-attachment: fixed;
+            background-size: 600px; /* Ajusta el tamaño de la silueta aquí */
+            background-position: center;
+            background-repeat: no-repeat;
+            background-color: #0e1117; /* Fondo oscuro base */
+        }
+        
+        /* Capa oscura para que el texto se lea bien sobre la imagen */
+        .stApp::before {
+            content: "";
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(14, 17, 23, 0.85); /* Oscurece el fondo */
+            z-index: -1;
+        }
+
+        /* Estilo para tablas y contenedores para que resalten */
+        .stDataFrame, .stMarkdown, div[data-testid="stExpander"] {
+            background-color: rgba(30, 30, 30, 0.9) !important;
+            padding: 10px;
+            border-radius: 10px;
+            border: 1px solid #f5c518;
+        }
+
+        /* Títulos en dorado Mulato */
+        h1, h2, h3 {
+            color: #f5c518 !important;
+        }
+        
+        /* Botones personalizados */
+        .stButton button {
+            background-color: #f5c518 !important;
+            color: black !important;
+            font-weight: bold;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+aplicar_estilo_mulato()
+
 def cargar_datos(query):
     try:
         conn = psycopg2.connect(DB_URL)
@@ -20,65 +70,37 @@ if 'autenticado' not in st.session_state:
     st.session_state['autenticado'] = False
 
 if not st.session_state['autenticado']:
-    st.markdown(
-        """
-        <style>
-        .stApp { background-color: #0e1117; }
-        .login-container { display: flex; flex-direction: column; align-items: center; justify-content: center; padding-top: 50px; }
-        .stButton button { width: 100%; background-color: #f5c518; color: black; font-weight: bold; border: none; height: 3em; }
-        .stButton button:hover { background-color: #ffdb4d; color: black; }
-        </style>
-        """, 
-        unsafe_allow_html=True
-    )
-    
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.markdown("<div class='login-container'>", unsafe_allow_html=True)
-        # SILUETA LUIS EDUARDO - Link de respaldo estable
-        st.image("https://raw.githubusercontent.com/fabiomatav/img/main/mulato_logo.png", width=280)
-        st.markdown("<h2 style='text-align: center; color: #f5c518;'>Control de Inventario</h2>", unsafe_allow_html=True)
-        
-        pin = st.text_input("Ingresa el PIN de acceso:", type="password")
-        if st.button("Ingresar al Sistema"):
+        st.markdown("<br><br><h2 style='text-align: center;'>🔐 Acceso El Mulato</h2>", unsafe_allow_html=True)
+        pin = st.text_input("PIN:", type="password")
+        if st.button("Ingresar"):
             if pin == "4321":
                 st.session_state['autenticado'] = True
                 st.rerun()
             else:
                 st.error("PIN Incorrecto")
-        st.markdown("</div>", unsafe_allow_html=True)
     st.stop()
 
-# --- MENÚ LATERAL ---
-st.sidebar.title("Menú El Mulato")
-opcion = st.sidebar.radio("Sección:", 
-    ["📈 Historial", "🍳 Recetas", "📦 Inventario", "🚨 Tablero", "🔄 Soft Restaurant", "🤖 Copiloto IA"])
+# --- MENÚ ---
+st.sidebar.title("Menú Principal")
+opcion = st.sidebar.radio("Ir a:", ["🚨 Tablero", "📦 Inventario", "📈 Historial", "🤖 Copiloto IA"])
 
-# --- PÁGINAS ---
+# --- TABLERO (Restaurado con tu lógica de colores) ---
 if opcion == "🚨 Tablero":
-    st.markdown("<h1 style='color: #FF4B4B;'>🚨 Tablero de Control y Pedidos</h1>", unsafe_allow_html=True)
-    
-    # Query con el orden jerárquico que necesitas (Aguardientes y Rones primero)
-    query_tablero = """
+    st.header("🚨 Tablero de Control y Pedidos")
+    query = """
         SELECT * FROM tablero_control 
         ORDER BY 
             CASE 
                 WHEN producto LIKE 'Aguardiente%' THEN 1
                 WHEN producto LIKE 'Ron %' THEN 2
-                WHEN producto LIKE 'Tequila %' THEN 3
                 WHEN categoria = 'Licor' THEN 5
-                WHEN categoria = 'Pasantes' THEN 7
-                WHEN categoria = 'Comida' THEN 8
                 ELSE 9 
             END, producto ASC
     """
-    df = cargar_datos(query_tablero)
-    
+    df = cargar_datos(query)
     if df is not None:
-        # Definimos las columnas exactas de tu tablero funcional
-        columnas_visibles = ['producto', 'stock_actual', 'promedio_venta_diario', 'venta_real', 'alerta', 'pedido_sugerido']
-        
-        # Lógica de colores según el estado de la alerta
         def aplicar_colores(row):
             if 'CRÍTICO' in str(row['alerta']):
                 return ['background-color: #ff4b4b; color: white'] * len(row)
@@ -87,27 +109,18 @@ if opcion == "🚨 Tablero":
             return [''] * len(row)
 
         st.dataframe(
-            df[columnas_visibles].style.format(precision=2, subset=['stock_actual', 'promedio_venta_diario', 'venta_real', 'pedido_sugerido'])
-            .apply(aplicar_colores, axis=1), 
+            df[['producto', 'stock_actual', 'promedio_venta_diario', 'venta_real', 'alerta', 'pedido_sugerido']]
+            .style.apply(aplicar_colores, axis=1), 
             use_container_width=True, hide_index=True
         )
 
-elif opcion == "📈 Historial":
-    st.header("📈 Historial de Ventas")
-    query_hist = """
-        SELECT h.producto, h.cantidad_vendida, h.fecha_inicio, h.fecha_fin 
-        FROM historial_ventas h
-        JOIN maestro_insumos m ON TRIM(UPPER(h.producto)) = TRIM(UPPER(m.producto))
-        ORDER BY h.fecha_inicio DESC
-    """
-    df = cargar_datos(query_hist)
-    if df is not None: st.dataframe(df, use_container_width=True, hide_index=True)
-
+# --- INVENTARIO ---
 elif opcion == "📦 Inventario":
     st.header("📦 Gestión de Stock")
     df = cargar_datos("SELECT producto, stock_actual FROM maestro_insumos ORDER BY producto ASC")
-    if df is not None: st.dataframe(df, use_container_width=True, hide_index=True)
+    if df is not None:
+        st.dataframe(df, use_container_width=True, hide_index=True)
 
-elif opcion == "🤖 Copiloto IA":
-    st.markdown("<h1 style='color: #4A90E2;'>🤖 Copiloto IA - El Mulato</h1>", unsafe_allow_html=True)
-    st.info("🧠 El sistema está analizando los datos para optimizar los pedidos sugeridos.")
+# --- RESTO DE PÁGINAS ---
+else:
+    st.info(f"Sección {opcion} cargada. La silueta del Mulato te acompaña de fondo.")
