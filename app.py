@@ -1,5 +1,5 @@
 import streamlit as st
-import pd
+import pandas as pd
 import psycopg2
 
 # 1. Configuración
@@ -35,7 +35,7 @@ if not st.session_state['autenticado']:
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown("<div class='login-container'>", unsafe_allow_html=True)
-        # LINK ESTABLE DE LA SILUETA
+        # LINK ESTABLE DE LA SILUETA DEL MULATO
         st.image("https://raw.githubusercontent.com/fabiomatav/img/main/mulato_logo.png", width=300)
         st.markdown("<h2 style='text-align: center; color: #f5c518;'>Control de Inventario</h2>", unsafe_allow_html=True)
         
