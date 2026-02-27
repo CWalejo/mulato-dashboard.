@@ -15,17 +15,52 @@ def cargar_datos(query):
     except Exception as e:
         return None
 
-# --- SEGURIDAD ---
+# --- SEGURIDAD CON LOGO ---
 if 'autenticado' not in st.session_state:
     st.session_state['autenticado'] = False
 
 if not st.session_state['autenticado']:
-    st.markdown("<h2 style='text-align: center;'>🔐 Acceso Privado - El Mulato</h2>", unsafe_allow_html=True)
-    pin = st.text_input("PIN:", type="password")
-    if st.button("Ingresar"):
-        if pin == "4321":
-            st.session_state['autenticado'] = True
-            st.rerun()
+    # CSS para centrar logo y estilizar login
+    st.markdown(
+        """
+        <style>
+        .stApp {
+            background-color: #0e1117;
+        }
+        .login-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding-top: 50px;
+        }
+        .stButton button {
+            width: 100%;
+            background-color: #f5c518;
+            color: black;
+            font-weight: bold;
+        }
+        </style>
+        """, 
+        unsafe_allow_html=True
+    )
+    
+    # Contenedor del Login
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown("<div class='login-container'>", unsafe_allow_html=True)
+        # Aquí usamos la silueta del Mulato como logo principal
+        st.image("https://i.ibb.co/6y45s1x/mulato-silhouette.png", width=300)
+        st.markdown("<h2 style='text-align: center; color: #f5c518;'>Control de Inventario</h2>", unsafe_allow_html=True)
+        
+        pin = st.text_input("Ingresa el PIN de acceso:", type="password")
+        if st.button("Ingresar al Sistema"):
+            if pin == "4321":
+                st.session_state['autenticado'] = True
+                st.rerun()
+            else:
+                st.error("PIN Incorrecto")
+        st.markdown("</div>", unsafe_allow_html=True)
     st.stop()
 
 # --- MENÚ ---
@@ -113,4 +148,4 @@ elif opcion == "🔄 Soft Restaurant":
 
 elif opcion == "🤖 Copiloto IA":
     st.markdown("<h1 style='color: #4A90E2;'>🤖 Copiloto IA - El Mulato</h1>", unsafe_allow_html=True)
-    st.info("🧠 En fase de análisis inteligente de datos y patrones de movimiento")
+    st.info("🧠 La IA está analizando tus datos y aprendiendo tus movimientos para optimizar el inventario.")
