@@ -13,7 +13,6 @@ def cargar_datos(query):
         conn.close()
         return df
     except Exception as e:
-        st.error(f"Error de conexión: {e}")
         return None
 
 # --- SEGURIDAD ---
@@ -37,7 +36,7 @@ opcion = st.sidebar.radio("Sección:",
 # --- PÁGINAS ---
 if opcion == "📈 Historial":
     st.header("📈 Historial de Ventas")
-    # LEFT JOIN para traer TODOS los productos de ventas aunque no estén en el maestro
+    # LEFT JOIN para no filtrar productos y ORDER BY por las nuevas categorías
     query_hist = """
         SELECT 
             h.producto, 
@@ -46,11 +45,23 @@ if opcion == "📈 Historial":
             h.fecha_fin 
         FROM historial_ventas h
         LEFT JOIN maestro_insumos m ON TRIM(UPPER(h.producto)) = TRIM(UPPER(m.producto))
-        ORDER BY h.fecha_inicio DESC, h.producto ASC
+        ORDER BY 
+            CASE 
+                WHEN m.categoria = 'Comida' THEN 1
+                WHEN m.categoria = 'Aguardiente' THEN 2
+                WHEN m.categoria = 'Ron' THEN 3
+                WHEN m.categoria = 'Tequila' THEN 4
+                WHEN m.categoria = 'Whisky' THEN 5
+                WHEN m.categoria = 'Vinos' THEN 6
+                WHEN m.categoria = 'Otros Licores' THEN 7
+                WHEN m.categoria = 'Cervezas' THEN 8
+                WHEN m.categoria = 'Pasantes' THEN 9
+                ELSE 10 
+            END, h.producto ASC
     """
     df = cargar_datos(query_hist)
     if df is not None:
-        # Limpieza de fechas para mostrar solo año-mes-día
+        # Formateo de fechas para que se vean limpias
         df['fecha_inicio'] = pd.to_datetime(df['fecha_inicio']).dt.date
         df['fecha_fin'] = pd.to_datetime(df['fecha_fin']).dt.date
         st.dataframe(df, use_container_width=True, hide_index=True, height=800)
@@ -64,7 +75,6 @@ elif opcion == "🍳 Recetas":
 elif opcion == "📦 Inventario":
     st.header("📦 Gestión de Stock")
     df_productos = cargar_datos("SELECT producto FROM maestro_insumos ORDER BY producto ASC")
-    
     with st.expander("➕ Actualizar Stock"):
         if df_productos is not None:
             prod_sel = st.selectbox("Producto:", df_productos['producto'])
@@ -81,7 +91,8 @@ elif opcion == "📦 Inventario":
                     st.rerun()
                 except Exception as e: st.error(e)
 
-    df = cargar_datos("SELECT producto, categoria, stock_actual FROM maestro_insumos ORDER BY producto ASC")
+    # Mostramos stock con su categoría para verificar orden
+    df = cargar_datos("SELECT producto, categoria, stock_actual FROM maestro_insumos ORDER BY categoria, producto ASC")
     if df is not None: 
         st.dataframe(df, use_container_width=True, hide_index=True, height=600)
 
