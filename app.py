@@ -36,7 +36,6 @@ opcion = st.sidebar.radio("Sección:",
 # --- PÁGINAS ---
 if opcion == "📈 Historial":
     st.header("📈 Historial de Ventas")
-    # Asegúrate de que esta línea de abajo esté alineada con st.header
     query_hist = """
         SELECT 
             h.producto, 
@@ -44,12 +43,12 @@ if opcion == "📈 Historial":
             h.fecha_inicio, 
             COALESCE(h.fecha_fin, CURRENT_DATE) as fecha_fin 
         FROM historial_ventas h
-        JOIN maestro_insumos m ON TRIM(UPPER(h.producto)) = TRIM(UPPER(m.producto))
+        LEFT JOIN maestro_insumos m ON TRIM(UPPER(h.producto)) = TRIM(UPPER(m.producto))
         ORDER BY 
             CASE 
-                WHEN m.producto LIKE 'Aguardiente%' THEN 1
-                WHEN m.producto LIKE 'Ron %' THEN 2
-                WHEN m.producto LIKE 'Tequila %' THEN 3
+                WHEN h.producto LIKE 'AGUARDIENTE%' THEN 1
+                WHEN h.producto LIKE 'RON %' THEN 2
+                WHEN h.producto LIKE 'TEQUILA %' THEN 3
                 WHEN m.categoria = 'Licor' THEN 5
                 WHEN m.categoria = 'Pasantes' THEN 7
                 WHEN m.categoria = 'Comida' THEN 8
@@ -58,17 +57,16 @@ if opcion == "📈 Historial":
     """
     df = cargar_datos(query_hist)
     if df is not None: 
-        # Esto limpia las fechas para que no se vean con hora (00:00:00)
         df['fecha_inicio'] = pd.to_datetime(df['fecha_inicio']).dt.date
         df['fecha_fin'] = pd.to_datetime(df['fecha_fin']).dt.date
-        st.dataframe(df, use_container_width=True, hide_index=True)
-    df = cargar_datos(query_hist)
-    if df is not None: st.dataframe(df, use_container_width=True, hide_index=True)
+        # height=600 permite que aparezca la barra de desplazamiento para ver todos los licores
+        st.dataframe(df, use_container_width=True, hide_index=True, height=600)
 
 elif opcion == "🍳 Recetas":
     st.header("🍳 Configuración de Recetas")
-    df = cargar_datos("SELECT * FROM recetas")
-    if df is not None: st.dataframe(df, use_container_width=True, hide_index=True)
+    df = cargar_datos("SELECT * FROM recetas ORDER BY nombre_plato ASC")
+    if df is not None: 
+        st.dataframe(df, use_container_width=True, hide_index=True, height=600)
 
 elif opcion == "📦 Inventario":
     st.header("📦 Gestión de Stock")
@@ -89,8 +87,9 @@ elif opcion == "📦 Inventario":
                     st.rerun()
                 except Exception as e: st.error(e)
 
-    df = cargar_datos("SELECT producto, stock_actual FROM maestro_insumos ORDER BY producto ASC")
-    if df is not None: st.dataframe(df, use_container_width=True, hide_index=True)
+    df = cargar_datos("SELECT producto, categoria, stock_actual FROM maestro_insumos ORDER BY producto ASC")
+    if df is not None: 
+        st.dataframe(df, use_container_width=True, hide_index=True, height=600)
 
 elif opcion == "🚨 Tablero":
     st.markdown("<h1 style='color: #FF4B4B;'>🚨 Tablero de Control y Pedidos</h1>", unsafe_allow_html=True)
@@ -109,7 +108,7 @@ elif opcion == "🚨 Tablero":
         st.dataframe(
             df[columnas_visibles].style.format(precision=2, subset=['stock_actual', 'promedio_venta_diario', 'venta_real', 'pedido_sugerido'])
             .apply(aplicar_colores, axis=1), 
-            use_container_width=True, hide_index=True
+            use_container_width=True, hide_index=True, height=600
         )
 
 elif opcion == "🔄 Soft Restaurant":
