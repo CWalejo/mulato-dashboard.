@@ -36,7 +36,8 @@ opcion = st.sidebar.radio("Sección:",
 # --- PÁGINAS ---
 if opcion == "📈 Historial":
     st.header("📈 Historial de Ventas")
-  query_hist = """
+    # Asegúrate de que esta línea de abajo esté alineada con st.header
+    query_hist = """
         SELECT 
             h.producto, 
             h.cantidad_vendida, 
@@ -55,6 +56,12 @@ if opcion == "📈 Historial":
                 ELSE 9 
             END, h.producto ASC
     """
+    df = cargar_datos(query_hist)
+    if df is not None: 
+        # Esto limpia las fechas para que no se vean con hora (00:00:00)
+        df['fecha_inicio'] = pd.to_datetime(df['fecha_inicio']).dt.date
+        df['fecha_fin'] = pd.to_datetime(df['fecha_fin']).dt.date
+        st.dataframe(df, use_container_width=True, hide_index=True)
     df = cargar_datos(query_hist)
     if df is not None: st.dataframe(df, use_container_width=True, hide_index=True)
 
