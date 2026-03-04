@@ -1,21 +1,21 @@
 import streamlit as st
 import pandas as pd
 import psycopg2
-import random
 
-# 1. Configuración
+# 1. Configuración de la página
 st.set_page_config(page_title="El Mulato - Sistema Inteligente", layout="wide")
 
-# URL de conexión (La misma que tienes)
+# URL de conexión única
 DB_URL = "postgresql://neondb_owner:npg_2YMloHQwec0b@ep-lucky-cloud-aihu085f-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require"
 
-# FUNCIÓN CON "ROMPE-CACHÉ"
-def cargar_datos_forzado(query):
+# FUNCIÓN SIN CACHÉ (Llamada directa al servidor)
+def cargar_datos_directo(query):
     try:
-        # Añadimos un parámetro aleatorio interno para que la conexión sea única
+        # Abrimos conexión
         conn = psycopg2.connect(DB_URL)
-        # Forzamos a pandas a no usar caché
+        # Cargamos los datos sin guardar nada en memoria (Cero caché)
         df = pd.read_sql(query, conn)
+        # Cerramos conexión
         conn.close()
         return df
     except Exception as e:
@@ -39,47 +39,49 @@ if not st.session_state['autenticado']:
 st.sidebar.title("Menú El Mulato")
 opcion = st.sidebar.radio("Sección:", ["📈 Historial", "📦 Inventario", "🚨 Tablero", "🔄 Soft Restaurant", "🤖 Copiloto IA"])
 
-# --- PÁGINA: HISTORIAL ---
+# --- PÁGINA: HISTORIAL (EL CORAZÓN DEL PROBLEMA) ---
 if opcion == "📈 Historial":
     st.header("📈 Historial de Ventas")
     
-    # BOTÓN PARA FORZAR RECARGA MANUAL
-    if st.button("🔄 Forzar Sincronización Real con Neon"):
+    # Este botón "limpia" la memoria de Streamlit por si acaso
+    if st.sidebar.button("🧹 Limpiar Memoria App"):
         st.cache_data.clear()
         st.rerun()
 
-    # Query ultra simple
-    df = cargar_datos_forzado("SELECT * FROM historial_ventas")
+    # TRAEMOS TODO LO QUE HAYA EN HISTORIAL_VENTAS
+    # Sin filtros, sin JOINs, sin categorías. Solo lo que ves en Neon.
+    df_hist = cargar_datos_directo("SELECT * FROM historial_ventas")
     
-    if df is not None:
-        cantidad = len(df)
-        if cantidad <= 10:
-            st.warning(f"⚠️ ¡Atención! La App solo detecta {cantidad} filas. Esto significa que la tabla en Neon que esta URL está leyendo solo tiene {cantidad} datos.")
-        else:
-            st.success(f"✅ ¡Éxito! Se detectaron {cantidad} registros.")
+    if df_hist is not None:
+        st.write(f"📊 **Datos detectados en Neon:** {len(df_hist)} registros.")
         
-        st.dataframe(df, use_container_width=True, hide_index=True, height=800)
+        # Formato de fechas
+        if not df_hist.empty:
+            df_hist['fecha_inicio'] = pd.to_datetime(df_hist['fecha_inicio']).dt.date
+            df_hist['fecha_fin'] = pd.to_datetime(df_hist['fecha_fin']).dt.date
+        
+        st.dataframe(df_hist, use_container_width=True, hide_index=True, height=800)
 
-# --- PÁGINA: INVENTARIO ---
+# --- PÁGINA: INVENTARIO (MAESTRO) ---
 elif opcion == "📦 Inventario":
     st.header("📦 Inventario (Maestro)")
-    df = cargar_datos_forzado("SELECT * FROM maestro_insumos ORDER BY categoria ASC")
-    if df is not None:
-        st.write(f"Total en Maestro: {len(df)}")
-        st.dataframe(df, use_container_width=True, hide_index=True, height=600)
+    df_inv = cargar_datos_directo("SELECT * FROM maestro_insumos ORDER BY categoria, producto")
+    if df_inv is not None:
+        st.write(f"📦 Total productos: {len(df_inv)}")
+        st.dataframe(df_inv, use_container_width=True, hide_index=True, height=600)
 
 # --- PÁGINA: TABLERO ---
 elif opcion == "🚨 Tablero":
-    st.header("🚨 Tablero")
-    df = cargar_datos_forzado("SELECT * FROM tablero_control")
-    if df is not None:
-        st.dataframe(df, use_container_width=True, hide_index=True)
+    st.header("🚨 Tablero de Control")
+    df_tab = cargar_datos_directo("SELECT * FROM tablero_control")
+    if df_tab is not None:
+        st.dataframe(df_tab, use_container_width=True, hide_index=True, height=800)
 
-# --- LAS OTRAS SECCIONES ---
+# --- LAS DEMÁS OPCIONES ---
 elif opcion == "🔄 Soft Restaurant":
     st.header("🔄 Carga de Datos")
     st.file_uploader("Subir reporte")
 
 elif opcion == "🤖 Copiloto IA":
     st.header("🤖 Copiloto IA")
-    st.write("Análisis en pausa hasta confirmar carga de datos.")
+    st.info("Listo para analizar los datos cargados.")
