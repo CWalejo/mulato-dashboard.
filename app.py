@@ -36,8 +36,12 @@ opcion = st.sidebar.radio("Sección:",
 # --- PÁGINAS ---
 if opcion == "📈 Historial":
     st.header("📈 Historial de Ventas")
-    query_hist = """
-        SELECT h.producto, h.cantidad_vendida, h.fecha_inicio, h.fecha_fin 
+  query_hist = """
+        SELECT 
+            h.producto, 
+            h.cantidad_vendida, 
+            h.fecha_inicio, 
+            COALESCE(h.fecha_fin, CURRENT_DATE) as fecha_fin 
         FROM historial_ventas h
         JOIN maestro_insumos m ON TRIM(UPPER(h.producto)) = TRIM(UPPER(m.producto))
         ORDER BY 
