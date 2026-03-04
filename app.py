@@ -13,6 +13,7 @@ def cargar_datos(query):
         conn.close()
         return df
     except Exception as e:
+        st.error(f"Error de conexión: {e}")
         return None
 
 # --- SEGURIDAD ---
@@ -36,31 +37,23 @@ opcion = st.sidebar.radio("Sección:",
 # --- PÁGINAS ---
 if opcion == "📈 Historial":
     st.header("📈 Historial de Ventas")
+    # LEFT JOIN para traer TODOS los productos de ventas aunque no estén en el maestro
     query_hist = """
         SELECT 
             h.producto, 
             h.cantidad_vendida, 
             h.fecha_inicio, 
-            COALESCE(h.fecha_fin, CURRENT_DATE) as fecha_fin 
+            h.fecha_fin 
         FROM historial_ventas h
         LEFT JOIN maestro_insumos m ON TRIM(UPPER(h.producto)) = TRIM(UPPER(m.producto))
-        ORDER BY 
-            CASE 
-                WHEN h.producto LIKE 'AGUARDIENTE%' THEN 1
-                WHEN h.producto LIKE 'RON %' THEN 2
-                WHEN h.producto LIKE 'TEQUILA %' THEN 3
-                WHEN m.categoria = 'Licor' THEN 5
-                WHEN m.categoria = 'Pasantes' THEN 7
-                WHEN m.categoria = 'Comida' THEN 8
-                ELSE 9 
-            END, h.producto ASC
+        ORDER BY h.fecha_inicio DESC, h.producto ASC
     """
     df = cargar_datos(query_hist)
-    if df is not None: 
+    if df is not None:
+        # Limpieza de fechas para mostrar solo año-mes-día
         df['fecha_inicio'] = pd.to_datetime(df['fecha_inicio']).dt.date
         df['fecha_fin'] = pd.to_datetime(df['fecha_fin']).dt.date
-        # height=600 permite que aparezca la barra de desplazamiento para ver todos los licores
-        st.dataframe(df, use_container_width=True, hide_index=True, height=600)
+        st.dataframe(df, use_container_width=True, hide_index=True, height=800)
 
 elif opcion == "🍳 Recetas":
     st.header("🍳 Configuración de Recetas")
@@ -71,6 +64,7 @@ elif opcion == "🍳 Recetas":
 elif opcion == "📦 Inventario":
     st.header("📦 Gestión de Stock")
     df_productos = cargar_datos("SELECT producto FROM maestro_insumos ORDER BY producto ASC")
+    
     with st.expander("➕ Actualizar Stock"):
         if df_productos is not None:
             prod_sel = st.selectbox("Producto:", df_productos['producto'])
@@ -108,7 +102,7 @@ elif opcion == "🚨 Tablero":
         st.dataframe(
             df[columnas_visibles].style.format(precision=2, subset=['stock_actual', 'promedio_venta_diario', 'venta_real', 'pedido_sugerido'])
             .apply(aplicar_colores, axis=1), 
-            use_container_width=True, hide_index=True, height=600
+            use_container_width=True, hide_index=True, height=800
         )
 
 elif opcion == "🔄 Soft Restaurant":
