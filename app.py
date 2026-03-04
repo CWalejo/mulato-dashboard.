@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import psycopg2
 
-# 1. Configuración de la página
+# 1. Configuración
 st.set_page_config(page_title="El Mulato - Sistema Inteligente", layout="wide")
 DB_URL = "postgresql://neondb_owner:npg_2YMloHQwec0b@ep-lucky-cloud-aihu085f-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require"
 
@@ -13,7 +13,7 @@ def cargar_datos(query):
         conn.close()
         return df
     except Exception as e:
-        st.error(f"Error de conexión: {e}")
+        st.error(f"Error al conectar con Neon: {e}")
         return None
 
 # --- SEGURIDAD ---
@@ -31,45 +31,53 @@ if not st.session_state['autenticado']:
 
 # --- MENÚ ---
 st.sidebar.title("Menú El Mulato")
-opcion = st.sidebar.radio("Sección:", ["📈 Historial", "🍳 Recetas", "📦 Inventario", "🚨 Tablero", "🔄 Soft Restaurant", "🤖 Copiloto IA"])
+opcion = st.sidebar.radio("Sección:", 
+    ["📈 Historial", "🍳 Recetas", "📦 Inventario", "🚨 Tablero", "🔄 Soft Restaurant", "🤖 Copiloto IA"])
 
-# --- 📈 HISTORIAL (SIN FILTROS - LOS 144 PRODUCTOS) ---
+# --- 1. HISTORIAL (Solo jala de historial_ventas) ---
 if opcion == "📈 Historial":
     st.header("📈 Historial de Ventas")
-    # Leemos directo de la tabla de historial sin cruzar con nada para que no se pierdan datos
-    df = cargar_datos("SELECT producto, cantidad_vendida, fecha_inicio, fecha_fin FROM historial_ventas ORDER BY producto ASC")
+    # Query directa a historial_ventas. Sin JOINs, sin filtros.
+    df = cargar_datos("SELECT producto, cantidad_vendida, fecha_inicio, fecha_fin FROM historial_ventas ORDER BY fecha_inicio DESC")
     
     if df is not None:
-        st.success(f"✅ Se han cargado {len(df)} productos correctamente.")
-        # Limpieza de visualización
+        st.success(f"✅ Se han cargado {len(df)} registros del Historial.")
         df['fecha_inicio'] = pd.to_datetime(df['fecha_inicio']).dt.date
         df['fecha_fin'] = pd.to_datetime(df['fecha_fin']).dt.date
         st.dataframe(df, use_container_width=True, hide_index=True, height=800)
 
-# --- 📦 INVENTARIO (MAESTRO DE INSUMOS) ---
+# --- 2. INVENTARIO (Solo jala de maestro_insumos) ---
 elif opcion == "📦 Inventario":
-    st.header("📦 Gestión de Stock")
-    # Aquí es donde SÍ usamos categorías porque la tabla maestro_insumos las tiene
-    df = cargar_datos("SELECT producto, categoria, stock_actual FROM maestro_insumos ORDER BY categoria, producto ASC")
+    st.header("📦 Gestión de Inventario (Maestro)")
+    # Query directa a maestro_insumos. Aquí sí usamos la categoría que ya organizamos.
+    df = cargar_datos("SELECT producto, categoria, stock_actual FROM maestro_insumos ORDER BY categoria ASC, producto ASC")
+    
     if df is not None:
+        st.info(f"📦 Total de productos en inventario: {len(df)}")
         st.dataframe(df, use_container_width=True, hide_index=True, height=600)
 
-# --- 🚨 TABLERO DE CONTROL (RESTAURADO) ---
+# --- 3. TABLERO DE CONTROL (Mantiene su lógica de alertas) ---
 elif opcion == "🚨 Tablero":
-    st.header("🚨 Tablero de Control y Pedidos")
-    # El tablero debe mostrar todo lo que la vista 'tablero_control' de Neon ya calculó
+    st.header("🚨 Tablero de Control")
     df = cargar_datos("SELECT * FROM tablero_control")
     if df is not None:
         st.dataframe(df, use_container_width=True, hide_index=True, height=800)
 
-# --- 🔄 CARGAR DATOS (SOFT RESTAURANT) ---
-elif opcion == "🔄 Soft Restaurant":
-    st.header("🔄 Sincronización Soft Restaurant")
-    archivo = st.file_uploader("Sube el reporte para actualizar los 144 registros", type=['csv', 'xlsx'])
-    if archivo:
-        st.info("Archivo detectado. Listo para procesar.")
+# --- 4. RECETAS ---
+elif opcion == "🍳 Recetas":
+    st.header("🍳 Recetas")
+    df = cargar_datos("SELECT * FROM recetas")
+    if df is not None:
+        st.dataframe(df, use_container_width=True, hide_index=True)
 
-# --- 🤖 COPILOTO IA ---
+# --- 5. SOFT RESTAURANT (Carga de archivos) ---
+elif opcion == "🔄 Soft Restaurant":
+    st.header("🔄 Carga de Datos Soft Restaurant")
+    archivo = st.file_uploader("Sube el archivo de ventas", type=['csv', 'xlsx'])
+    if archivo:
+        st.success("Archivo listo para procesar.")
+
+# --- 6. COPILOTO IA ---
 elif opcion == "🤖 Copiloto IA":
     st.header("🤖 Copiloto IA")
-    st.write("Análisis inteligente basado en los 144 registros del historial.")
+    st.write("Espacio para análisis inteligente de datos.")
