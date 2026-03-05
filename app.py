@@ -3,9 +3,9 @@ import pandas as pd
 import psycopg2
 
 # 1. Configuración de la Página
-st.set_page_config(page_title="El Mulato - Sistema de Gestión", layout="wide")
+st.set_page_config(page_title="El Mulato - Gestión Total", layout="wide")
 
-# URL de Conexión (Rama: Actualización de nombres y clave)
+# URL de Conexión (Rama: ep-solitary-cake-ai8g7c0x)
 DB_URL = "postgresql://neondb_owner:npg_2YMloHQwec0b@ep-solitary-cake-ai8g7c0x-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require"
 
 def consultar_neon(query):
@@ -32,67 +32,67 @@ if not st.session_state['autenticado']:
     st.stop()
 
 # --- MENÚ LATERAL ---
-st.sidebar.title("🏢 El Mulato")
+st.sidebar.title("🏢 Menú El Mulato")
 opcion = st.sidebar.radio("Navegación:", 
     ["📈 Historial de Ventas", "🍳 Recetas", "📦 Maestro de Insumos", "🚨 Tablero de Control"])
 
-# --- SECCIÓN 1: HISTORIAL DE VENTAS ---
+# --- 1. HISTORIAL ---
 if opcion == "📈 Historial de Ventas":
     st.header("📈 Historial de Ventas")
     df_ventas = consultar_neon("SELECT * FROM historial_ventas ORDER BY id ASC")
     if df_ventas is not None:
-        st.metric("Total Registros en Neon", len(df_ventas))
-        st.dataframe(df_ventas, use_container_width=True, hide_index=True, height=500)
+        st.metric("Registros Totales", len(df_ventas))
+        st.dataframe(df_ventas, use_container_width=True, hide_index=True)
 
-# --- SECCIÓN 2: RECETAS ---
+# --- 2. RECETAS ---
 elif opcion == "🍳 Recetas":
     st.header("🍳 Libro de Recetas")
-    # Consulta simple para evitar errores de nombres de columnas
     df_recetas = consultar_neon("SELECT * FROM recetas")
     if df_recetas is not None:
-        if df_recetas.empty:
-            st.info("No hay recetas registradas todavía.")
-        else:
-            st.write(f"📖 Total recetas: {len(df_recetas)}")
-            st.dataframe(df_recetas, use_container_width=True, hide_index=True)
+        st.dataframe(df_recetas, use_container_width=True, hide_index=True)
 
-# --- SECCIÓN 3: MAESTRO DE INSUMOS ---
+# --- 3. MAESTRO DE INSUMOS ---
 elif opcion == "📦 Maestro de Insumos":
     st.header("📦 Maestro de Insumos")
     df_maestro = consultar_neon("SELECT * FROM maestro_insumos ORDER BY producto ASC")
     if df_maestro is not None:
-        st.write(f"📦 Productos en inventario: {len(df_maestro)}")
-        st.dataframe(df_maestro, use_container_width=True, hide_index=True, height=500)
+        st.dataframe(df_maestro, use_container_width=True, hide_index=True)
 
-# --- SECCIÓN 4: TABLERO DE CONTROL (Sincronizado con Neon) ---
+# --- 4. TABLERO DE CONTROL (CON PROMEDIO DIARIO) ---
 elif opcion == "🚨 Tablero de Control":
     st.header("🚨 Tablero de Gestión")
     
-    # Traemos la tabla que ya tiene los cálculos de alertas y sugeridos
+    # Traemos la tabla completa de Neon
     df_tablero = consultar_neon("SELECT * FROM tablero_control")
     
     if df_tablero is not None:
-        # Contadores rápidos para el resumen
-        # Buscamos los emojis o textos que usas en Neon para las alertas
-        criticos = len(df_tablero[df_tablero['alerta'].str.contains("🔴|CRÍTICO", na=False)])
-        pedir = len(df_tablero[df_tablero['alerta'].str.contains("🟡|PEDIR", na=False)])
+        # Métricas de resumen basadas en la columna 'alerta'
+        criticos = len(df_tablero[df_tablero['alerta'].str.contains("CRÍTICO", na=False)])
+        pedir = len(df_tablero[df_tablero['alerta'].str.contains("PEDIR", na=False)])
         
         c1, c2, c3 = st.columns(3)
         c1.metric("🔴 Alertas Críticas", criticos)
         c2.metric("🟡 Pedidos Pendientes", pedir)
         c3.success("Sincronización OK")
 
-        # Mostramos la tabla tal cual está en tu Neon
+        # Mostramos la tabla con la columna de promedio diario incluida
         st.dataframe(
             df_tablero, 
             use_container_width=True, 
             hide_index=True,
-            column_order=("producto", "stock_actual", "venta_real", "alerta", "pedido_sugerido")
+            column_order=(
+                "producto", 
+                "stock_actual", 
+                "promedio_venta_diario", # <--- Columna agregada
+                "venta_real", 
+                "alerta", 
+                "pedido_sugerido"
+            )
         )
     else:
-        st.error("No se pudo cargar la tabla de control. Revisa que 'tablero_control' exista en Neon.")
+        st.error("No se pudo cargar la tabla 'tablero_control'.")
 
-# --- PIE DE PÁGINA ---
+# --- CIERRE ---
 st.sidebar.markdown("---")
 if st.sidebar.button("Cerrar Sesión"):
     st.session_state['autenticado'] = False
