@@ -1,16 +1,18 @@
 import streamlit as st
 import pandas as pd
 import psycopg2
-import google.generativeai as genai  # Necesitas instalar: pip install google-generativeai
+import google.generativeai as genai
+import plotly.express as px
 
-# 1. CONFIGURACIÓN
-st.set_page_config(page_title="El Mulato - Gestión Inteligente", layout="wide")
+# 1. Configuración de la Página
+st.set_page_config(page_title="El Mulato Hub", layout="wide", page_icon="🏢")
 
-# Conexión a Neon
+# --- CONEXIÓN A NEON ---
+# Usando la rama: ep-solitary-cake-ai8g7c0x
 DB_URL = "postgresql://neondb_owner:npg_2YMloHQwec0b@ep-solitary-cake-ai8g7c0x-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require"
 
-# Configuración IA (Aquí pones tu API KEY de Google AI Studio)
-# Es gratis en: https://aistudio.google.com/
+# --- CONFIGURACIÓN IA ---
+# Reemplaza con tu llave de Google AI Studio
 genai.configure(api_key="TU_API_KEY_AQUI")
 model = genai.GenerativeModel('gemini-1.5-flash')
 
@@ -21,7 +23,7 @@ def consultar_neon(query):
         conn.close()
         return df
     except Exception as e:
-        st.error(f"❌ Error de DB: {e}")
+        st.error(f"❌ Error de conexión: {e}")
         return None
 
 # --- SEGURIDAD ---
@@ -29,7 +31,7 @@ if 'autenticado' not in st.session_state:
     st.session_state['autenticado'] = False
 
 if not st.session_state['autenticado']:
-    st.markdown("<h2 style='text-align: center;'>🔐 Acceso Privado - El Mulato</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center;'>🔐 Acceso Privado</h2>", unsafe_allow_html=True)
     pin = st.text_input("PIN:", type="password")
     if st.button("Entrar"):
         if pin == "4321":
@@ -37,65 +39,87 @@ if not st.session_state['autenticado']:
             st.rerun()
     st.stop()
 
-# --- MENÚ ---
+# --- MENÚ LATERAL ---
 st.sidebar.title("🏢 El Mulato Hub")
-opcion = st.sidebar.radio("Ir a:", 
-    ["📈 Historial", "🍳 Recetas", "📦 Maestro", "🚨 Tablero", "📤 Carga de Datos", "🤖 IA Multato"])
+opcion = st.sidebar.radio("Ir a:", ["📈 Historial", "🍳 Recetas", "📦 Maestro", "🚨 Tablero", "📤 Carga de Datos", "🤖 IA Mulato"])
 
-# --- TABLERO DE CONTROL (CON DECIMALES) ---
-if opcion == "🚨 Tablero de Control":
-    st.header("🚨 Tablero de Gestión")
-    df = consultar_neon("SELECT * FROM tablero_control")
+# --- 1. HISTORIAL ---
+if opcion == "📈 Historial":
+    st.header("📈 Historial de Ventas")
+    df = consultar_neon("SELECT * FROM historial_ventas ORDER BY id ASC")
     if df is not None:
-        # Formatear a 2 decimales para botellas/coctelería
-        df["venta_real"] = df["venta_real"].astype(float).map(lambda x: f"{x:.2f}")
         st.dataframe(df, use_container_width=True, hide_index=True)
 
-# --- CARGA DE DATOS (CSV Y MANUAL) ---
+# --- 2. RECETAS ---
+elif opcion == "🍳 Recetas":
+    st.header("🍳 Libro de Recetas")
+    df = consultar_neon("SELECT * FROM recetas")
+    if df is not None:
+        st.dataframe(df, use_container_width=True, hide_index=True)
+
+# --- 3. MAESTRO DE INSUMOS ---
+elif opcion == "📦 Maestro":
+    st.header("📦 Maestro de Insumos (Inventario)")
+    df = consultar_neon("SELECT * FROM maestro_insumos ORDER BY producto ASC")
+    if df is not None:
+        st.dataframe(df, use_container_width=True, hide_index=True)
+
+# --- 4. TABLERO DE GESTIÓN ---
+elif opcion == "🚨 Tablero":
+    st.header("🚨 Tablero de Gestión")
+    df_tablero = consultar_neon("SELECT * FROM tablero_control")
+    
+    if df_tablero is not None:
+        # Decimales en Venta Real para ver botellas exactas
+        df_tablero["venta_real"] = df_tablero["venta_real"].astype(float)
+        
+        c1, c2 = st.columns(2)
+        criticos = len(df_tablero[df_tablero['alerta'].str.contains("CRÍTICO", na=False)])
+        pedir = len(df_tablero[df_tablero['alerta'].str.contains("PEDIR", na=False)])
+        
+        c1.metric("🔴 Alertas Críticas", criticos)
+        c2.metric("🟡 Pedidos Pendientes", pedir)
+
+        st.dataframe(
+            df_tablero, 
+            use_container_width=True, 
+            hide_index=True,
+            column_order=("producto", "stock_actual", "promedio_venta_diario", "venta_real", "alerta", "pedido_sugerido")
+        )
+
+# --- 5. CARGA DE DATOS ---
 elif opcion == "📤 Carga de Datos":
-    st.header("📤 Actualizar Inventario")
+    st.header("📤 Actualizar desde Soft")
+    t1, t2 = st.tabs(["Cargar CSV", "Entrada Manual"])
     
-    tab1, tab2 = st.tabs(["Cargar CSV (Soft)", "Entrada Manual"])
-    
-    with tab1:
-        archivo = st.file_uploader("Sube el reporte de Soft", type=["csv"])
+    with t1:
+        archivo = st.file_uploader("Reporte CSV de Soft", type=["csv"])
         if archivo:
             df_csv = pd.read_csv(archivo)
+            st.write("Datos detectados:")
             st.dataframe(df_csv.head())
-            if st.button("Procesar CSV"):
-                st.success("Cargando datos a Neon...")
-
-    with tab2:
-        st.subheader("Entrada rápida de stock")
-        p_nombre = st.selectbox("Producto", ["Aguardiente", "Ron", "Vodka"]) # Esto debería venir de la DB
-        n_stock = st.number_input("Nuevo Stock", min_value=0.0)
-        if st.button("Actualizar"):
-            st.success(f"Stock de {p_nombre} actualizado.")
-
-# --- ASISTENTE IA (CONEXIÓN REAL) ---
-elif opcion == "🤖 IA Multato":
-    st.header("🤖 Asistente Inteligente El Mulato")
-    st.write("Analizo tus 144 productos en tiempo real.")
-
-    # 1. La IA lee la base de datos para saber la verdad
-    df_contexto = consultar_neon("SELECT producto, stock_actual, alerta, venta_real FROM tablero_control")
+            if st.button("Confirmar Carga"):
+                st.success("Sincronizando con Neon...")
     
-    prompt_usuario = st.chat_input("Pregúntame: ¿Qué debo comprar hoy? o ¿Cómo van las ventas?")
+    with t2:
+        st.subheader("Ajuste Manual de Inventario")
+        prod = st.text_input("Producto")
+        cant = st.number_input("Cantidad", min_value=0.0)
+        if st.button("Guardar"):
+            st.success(f"Se registró {cant} para {prod}")
+
+# --- 6. IA MULATO ---
+elif opcion == "🤖 IA Mulato":
+    st.header("🤖 Asistente de Negocio")
+    # La IA lee tu tabla actual antes de hablar
+    df_contexto = consultar_neon("SELECT * FROM tablero_control")
     
-    if prompt_usuario:
-        # Creamos un contexto para la IA basado en tus datos reales
-        contexto_datos = df_contexto.to_string()
-        prompt_completo = f"""
-        Eres el asistente experto de 'El Mulato'. Aquí tienes los datos actuales de inventario:
-        {contexto_datos}
-        
-        Responde a la siguiente duda del dueño: {prompt_usuario}
-        Sé breve, directo y usa un tono profesional de negocios.
-        """
+    pregunta = st.chat_input("Pregúntame sobre el stock o las ventas...")
+    if pregunta and df_contexto is not None:
+        contexto = df_contexto.to_string()
+        prompt = f"Eres el administrador de 'El Mulato'. Con estos datos: {contexto}. Responde: {pregunta}"
         
         with st.spinner("Analizando inventario..."):
-            response = model.generate_content(prompt_completo)
-            st.markdown(f"**Respuesta de la IA:**")
+            response = model.generate_content(prompt)
+            st.markdown("### Respuesta:")
             st.write(response.text)
-
-# (Las demás secciones Historial, Recetas, Maestro siguen igual que antes...)
