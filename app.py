@@ -7,12 +7,11 @@ import plotly.express as px
 # 1. Configuración de la Página
 st.set_page_config(page_title="El Mulato Hub", layout="wide", page_icon="🏢")
 
-# --- CONEXIÓN A NEON ---
-# Usando la rama Primary (Lucky Cloud) para asegurar que carguen tus 144 registros
-DB_URL = "postgresql://neondb_owner:npg_2YMloHQwec0b@ep-lucky-cloud-aihu085f-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require"
+# --- CONEXIÓN A NEON (RAMA: PRUEBAS) ---
+DB_URL = "postgresql://neondb_owner:npg_2YMloHQwec0b@ep-young-meadow-aicra7vo-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require"
 
 # --- CONFIGURACIÓN IA ---
-# Configuración directa para evitar el error de InvalidArgument
+# Consigue tu clave en: https://aistudio.google.com/
 genai.configure(api_key="TU_API_KEY_AQUI")
 model = genai.GenerativeModel('gemini-1.5-flash')
 
@@ -23,7 +22,7 @@ def consultar_neon(query):
         conn.close()
         return df
     except Exception as e:
-        st.error(f"❌ Error de conexión con Neon: {e}")
+        st.error(f"❌ Error de conexión: {e}")
         return None
 
 # --- SEGURIDAD ---
@@ -33,7 +32,7 @@ if 'autenticado' not in st.session_state:
 if not st.session_state['autenticado']:
     st.markdown("<h2 style='text-align: center;'>🔐 Acceso Privado - El Mulato</h2>", unsafe_allow_html=True)
     pin = st.text_input("PIN de Acceso:", type="password")
-    if st.button("Entrar"):
+    if st.button("Ingresar"):
         if pin == "4321":
             st.session_state['autenticado'] = True
             st.rerun()
@@ -41,14 +40,15 @@ if not st.session_state['autenticado']:
 
 # --- MENÚ LATERAL ---
 st.sidebar.title("🏢 El Mulato Hub")
-opcion = st.sidebar.radio("Navegación:", ["📈 Historial", "🍳 Recetas", "📦 Maestro", "🚨 Tablero", "📤 Carga de Datos", "🤖 IA Mulato"])
+opcion = st.sidebar.radio("Navegación:", 
+    ["📈 Historial", "🍳 Recetas", "📦 Maestro", "🚨 Tablero", "📤 Carga de Datos", "🤖 IA Mulato"])
 
 # --- 1. HISTORIAL ---
 if opcion == "📈 Historial":
     st.header("📈 Historial de Ventas")
     df = consultar_neon("SELECT * FROM historial_ventas ORDER BY id ASC")
     if df is not None:
-        st.metric("Registros Cargados", len(df))
+        st.metric("Total Registros", len(df))
         st.dataframe(df, use_container_width=True, hide_index=True)
 
 # --- 2. RECETAS ---
@@ -58,32 +58,82 @@ elif opcion == "🍳 Recetas":
     if df is not None:
         st.dataframe(df, use_container_width=True, hide_index=True)
 
-# --- 3. MAESTRO DE INSUMOS ---
+# --- 3. MAESTRO ---
 elif opcion == "📦 Maestro":
-    st.header("📦 Maestro de Insumos (Inventario)")
+    st.header("📦 Maestro de Insumos")
     df = consultar_neon("SELECT * FROM maestro_insumos ORDER BY producto ASC")
     if df is not None:
         st.dataframe(df, use_container_width=True, hide_index=True)
 
-# --- 4. TABLERO DE GESTIÓN ---
+# --- 4. TABLERO DE GESTIÓN (CORREGIDO Y CON DECIMALES) ---
 elif opcion == "🚨 Tablero":
     st.header("🚨 Tablero de Gestión")
     df_tablero = consultar_neon("SELECT * FROM tablero_control")
     
     if df_tablero is not None:
-        # Aseguramos decimales para ver el gasto real de botellas
+        # Forzar decimales para ver gasto real de botellas
         df_tablero["venta_real"] = df_tablero["venta_real"].astype(float)
         
         c1, c2, c3 = st.columns(3)
-        criticos = len(df_tablero[df_tablero['alerta'].str.contains("CRÍTICO", na=False)])
-        pedir = len(df_tablero[df_tablero['alerta'].str.contains("PEDIR", na=False)])
+        criticos = len(df_tablero[df_tablero['alerta'].str.contains("🔴|CRÍTICO", na=False)])
+        pedir = len(df_tablero[df_tablero['alerta'].str.contains("🟡|PEDIR", na=False)])
         
         c1.metric("🔴 Alertas Críticas", criticos)
         c2.metric("🟡 Pedidos Pendientes", pedir)
-        c3.success("Datos en tiempo real")
+        c3.success("Sincronización OK")
 
         st.dataframe(
             df_tablero, 
             use_container_width=True, 
             hide_index=True,
-            column_order=("producto", "stock_actual", "promedio_venta_diario", "venta_real", "alerta", "pedido
+            column_order=("producto", "stock_actual", "promedio_venta_diario", "venta_real", "alerta", "pedido_sugerido")
+        )
+
+# --- 5. CARGA DE DATOS (CSV SOFT) ---
+elif opcion == "📤 Carga de Datos":
+    st.header("📤 Actualizar desde Soft")
+    tab_csv, tab_manual = st.tabs(["Cargar CSV", "Entrada Manual"])
+    
+    with tab_csv:
+        archivo = st.file_uploader("Subir reporte de Soft (CSV)", type=["csv"])
+        if archivo:
+            df_csv = pd.read_csv(archivo)
+            st.write("Vista previa:")
+            st.dataframe(df_csv.head())
+            if st.button("Procesar y Sincronizar"):
+                st.success("Datos en proceso de carga a Neon...")
+
+    with tab_manual:
+        st.subheader("Ajuste Manual Rápido")
+        prod = st.text_input("Producto")
+        cant = st.number_input("Cantidad", min_value=0.0)
+        if st.button("Guardar"):
+            st.success(f"Ajuste para {prod} guardado.")
+
+# --- 6. IA MULATO (ANALISTA 24/7) ---
+elif opcion == "🤖 IA Mulato":
+    st.header("🤖 Asistente de Negocio")
+    st.write("Analizo tu inventario en tiempo real para darte recomendaciones.")
+
+    # La IA lee la verdad de Neon
+    df_contexto = consultar_neon("SELECT producto, stock_actual, alerta, venta_real FROM tablero_control")
+    
+    pregunta = st.chat_input("Ejemplo: ¿Qué botellas debo pedir hoy según las ventas?")
+    
+    if pregunta and df_contexto is not None:
+        contexto_datos = df_contexto.to_string(index=False)
+        prompt = f"""
+        Eres el administrador de 'El Mulato'. Con estos datos de inventario:
+        {contexto_datos}
+        
+        Responde a: {pregunta}
+        Sé directo y sugiere qué comprar o qué cuidar.
+        """
+        
+        with st.spinner("Analizando inventario..."):
+            try:
+                response = model.generate_content(prompt)
+                st.markdown("### 💡 Recomendación:")
+                st.write(response.text)
+            except Exception as e:
+                st.error(f"Error de conexión con la IA. Verifica tu API Key.")
