@@ -108,18 +108,45 @@ elif opcion == "📤 Carga de Datos":
         if st.button("Guardar"):
             st.success(f"Se registró {cant} para {prod}")
 
-# --- 6. IA MULATO ---
+# --- 6. IA MULATO (VERSIÓN BLINDADA) ---
 elif opcion == "🤖 IA Mulato":
     st.header("🤖 Asistente de Negocio")
+    
+    # Verificación de API Key
+    if "TU_API_KEY_AQUI" in DB_URL or not genai.get_model('models/gemini-1.5-flash'):
+        st.warning("⚠️ Configuración incompleta: Por favor asegúrate de haber puesto tu API Key real de Google AI Studio.")
+
     # La IA lee tu tabla actual antes de hablar
     df_contexto = consultar_neon("SELECT * FROM tablero_control")
     
     pregunta = st.chat_input("Pregúntame sobre el stock o las ventas...")
+    
     if pregunta and df_contexto is not None:
-        contexto = df_contexto.to_string()
-        prompt = f"Eres el administrador de 'El Mulato'. Con estos datos: {contexto}. Responde: {pregunta}"
+        # Limpiamos los datos para que el prompt no sea demasiado pesado
+        contexto_resumido = df_contexto[['producto', 'stock_actual', 'alerta', 'venta_real']].to_string()
         
-        with st.spinner("Analizando inventario..."):
-            response = model.generate_content(prompt)
-            st.markdown("### Respuesta:")
-            st.write(response.text)
+        prompt = f"""
+        Actúa como el administrador experto del bar 'El Mulato'. 
+        Analiza estos datos de inventario y responde de forma breve y profesional.
+        
+        DATOS ACTUALES:
+        {contexto_resumido}
+        
+        PREGUNTA DEL DUEÑO: {pregunta}
+        """
+        
+        with st.spinner("Consultando con el cerebro de la IA..."):
+            try:
+                # Intentamos generar la respuesta
+                response = model.generate_content(prompt)
+                st.markdown("### 💡 Análisis de la IA:")
+                st.write(response.text)
+            except Exception as e:
+                # Si falla, te damos una respuesta basada en lógica simple para no dejarte solo
+                st.error(f"La IA tuvo un inconveniente técnico (Error: {e})")
+                st.info("Mientras se soluciona, aquí tienes un resumen rápido basado en tus datos de Neon:")
+                
+                # Lógica de respaldo manual
+                criticos = df_contexto[df_contexto['alerta'].str.contains("CRÍTICO", na=False)]
+                if not criticos.empty:
+                    st.write(f"Sugerencia manual: Tienes {len(criticos)} productos críticos: {', '.join(criticos['producto'].tolist())}.")
