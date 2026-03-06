@@ -108,27 +108,37 @@ elif opcion == "📤 Carga de Datos":
         if st.button("Guardar"):
             st.success(f"Ajuste para {prod} guardado.")
 
-# --- 6. IA MULATO (MODELO CORREGIDO) ---
+# --- 6. IA MULATO (USANDO GEMINI-PRO PARA MÁXIMA COMPATIBILIDAD) ---
 elif opcion == "🤖 IA Mulato":
     st.header("🤖 Asistente de Negocio")
     st.write("Analizo tu inventario en tiempo real para darte recomendaciones.")
 
-    # Usamos models/gemini-1.5-flash que es la ruta completa oficial
     try:
-        model_corregido = genai.GenerativeModel('models/gemini-1.5-flash')
+        # Cambiamos a 'gemini-pro' que es el modelo más compatible
+        model_pro = genai.GenerativeModel('gemini-pro')
         
         df_contexto = consultar_neon("SELECT producto, stock_actual, alerta, venta_real FROM tablero_control")
         
-        pregunta = st.chat_input("Pregúntame sobre el stock o las ventas...")
+        pregunta = st.chat_input("Escribe tu pregunta aquí (ej: ¿Qué debo pedir hoy?)")
         
         if pregunta and df_contexto is not None:
+            # Resumimos los datos para no saturar a la IA
             contexto_datos = df_contexto.to_string(index=False)
-            prompt = f"Eres el administrador de 'El Mulato'. Datos:\n{contexto_datos}\nPregunta: {pregunta}"
             
-            with st.spinner("Analizando inventario..."):
-                response = model_corregido.generate_content(prompt)
-                st.markdown("### 💡 Recomendación:")
+            prompt = f"""
+            Actúa como el administrador del bar 'El Mulato'. 
+            Analiza estos datos de inventario:
+            {contexto_datos}
+            
+            Pregunta del dueño: {pregunta}
+            Respuesta breve y profesional:
+            """
+            
+            with st.spinner("Consultando con Gemini Pro..."):
+                response = model_pro.generate_content(prompt)
+                st.markdown("### 💡 Análisis del Asistente:")
                 st.write(response.text)
+                
     except Exception as e:
-        st.error(f"Hubo un detalle con el modelo de IA: {e}")
-        st.info("Sugerencia: Intenta usar 'gemini-pro' si el error persiste.")
+        st.error(f"Error técnico: {e}")
+        st.info("Si ves un error de 'quota', espera un minuto y vuelve a intentar.")
