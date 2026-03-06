@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import psycopg2
-import google.generativeai as genai
 import plotly.express as px
 import requests
 import json
@@ -11,14 +10,6 @@ st.set_page_config(page_title="El Mulato Hub", layout="wide", page_icon="🏢")
 
 # --- CONEXIÓN A NEON ---
 DB_URL = "postgresql://neondb_owner:npg_2YMloHQwec0b@ep-young-meadow-aicra7vo-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require"
-
-# --- CONFIGURACIÓN IA (VÍA SECRETS) ---
-try:
-    API_KEY = st.secrets["GEMINI_API_KEY"]
-except:
-    API_KEY = "AIzaSyCqwFemPJ1Ip6Ry7bULmjEZ6fM9Pl6t8x8"
-
-genai.configure(api_key=API_KEY)
 
 def consultar_neon(query):
     try:
@@ -69,66 +60,23 @@ elif opcion == "📦 Maestro":
         st.dataframe(df, use_container_width=True, hide_index=True)
 
 elif opcion == "🚨 Tablero":
-    st.header("🚨 Tablero de Gestión")
+    st.header("🚨 Tablero de Gestión de Inventario")
     df_tablero = consultar_neon("SELECT * FROM tablero_control")
     
     if df_tablero is not None:
-        df_tablero["venta_real"] = df_tablero["venta_real"].astype(float)
-        
-        c1, c2, c3 = st.columns(3)
+        # Limpieza de datos
+        df_tablero["venta_real"] = pd.to_numeric(df_tablero["venta_real"], errors='coerce').fillna(0)
+        df_tablero["stock_actual"] = pd.to_numeric(df_tablero["stock_actual"], errors='coerce').fillna(0)
+
+        # --- 1. INDICADORES (KPIs) ---
+        c1, c2, c3, c4 = st.columns(4)
         criticos = len(df_tablero[df_tablero['alerta'].str.contains("🔴|CRÍTICO", na=False)])
         pedir = len(df_tablero[df_tablero['alerta'].str.contains("🟡|PEDIR", na=False)])
+        stock_total = df_tablero["stock_actual"].sum()
         
-        c1.metric("🔴 Alertas Críticas", criticos)
-        c2.metric("🟡 Pedidos Pendientes", pedir)
-        c3.success("Sincronización Neon OK")
+        c1.metric("🚨 CRÍTICOS", criticos, delta=f"{criticos} urgentes", delta_color="inverse")
+        c2.metric("🟡 POR PEDIR", pedir)
+        c3.metric("📦 STOCK TOTAL", int(stock_total))
+        c4.success("✅ Sincronizado")
 
-        st.dataframe(
-            df_tablero, 
-            use_container_width=True, 
-            hide_index=True,
-            column_order=("producto", "stock_actual", "promedio_venta_diario", "venta_real", "alerta", "pedido_sugerido")
-        )
-
-elif opcion == "📤 Carga de Datos":
-    st.header("📤 Actualizar desde Soft")
-    archivo = st.file_uploader("Subir reporte de Soft (CSV)", type=["csv"])
-    if archivo:
-        st.info("Archivo detectado. Procesando integración...")
-
-# --- 6. IA MULATO (VERSIÓN ESTABLE) ---
-elif opcion == "🤖 IA Mulato":
-    st.header("🤖 Asistente de Negocio")
-    st.write("Analizo tu inventario real para darte recomendaciones.")
-
-    df_contexto = consultar_neon("SELECT producto, stock_actual, alerta, venta_real FROM tablero_control")
-    
-    pregunta = st.chat_input("¿Qué quieres saber de tu inventario?")
-    
-    if pregunta and df_contexto is not None:
-        contexto_datos = df_contexto.to_string(index=False)
-        url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={API_KEY}"
-        
-        payload = {
-            "contents": [{
-                "parts": [{
-                    "text": f"Eres el administrador del bar 'El Mulato'. Datos de inventario:\n{contexto_datos}\nPregunta: {pregunta}"
-                }]
-            }]
-        }
-        
-        headers = {'Content-Type': 'application/json'}
-        
-        try:
-            with st.spinner("Analizando..."):
-                response = requests.post(url, headers=headers, data=json.dumps(payload))
-                res_json = response.json()
-                
-                if "candidates" in res_json:
-                    texto_respuesta = res_json["candidates"][0]["content"]["parts"][0]["text"]
-                    st.markdown("### 💡 Recomendación:")
-                    st.write(texto_respuesta)
-                else:
-                    st.error(f"Google dice: {res_json.get('error', {}).get('message', 'Error desconocido')}")
-        except Exception as e:
-            st.error(f"Error de red: {e}")
+        st
