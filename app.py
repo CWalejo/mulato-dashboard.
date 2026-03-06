@@ -10,9 +10,8 @@ st.set_page_config(page_title="El Mulato Hub", layout="wide", page_icon="🏢")
 # --- CONEXIÓN A NEON (RAMA: PRUEBAS) ---
 DB_URL = "postgresql://neondb_owner:npg_2YMloHQwec0b@ep-young-meadow-aicra7vo-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require"
 
-# --- CONFIGURACIÓN IA ---
-# Consigue tu clave en: https://aistudio.google.com/
-genai.configure(api_key="TU_API_KEY_AQUI")
+# --- CONFIGURACIÓN IA (CON TU CLAVE REAL) ---
+genai.configure(api_key="AIzaSyA7DUcZ7Bc2sEJGHFYkSBf-0bZDBR3a214")
 model = genai.GenerativeModel('gemini-1.5-flash')
 
 def consultar_neon(query):
@@ -65,13 +64,12 @@ elif opcion == "📦 Maestro":
     if df is not None:
         st.dataframe(df, use_container_width=True, hide_index=True)
 
-# --- 4. TABLERO DE GESTIÓN (CORREGIDO Y CON DECIMALES) ---
+# --- 4. TABLERO DE GESTIÓN ---
 elif opcion == "🚨 Tablero":
     st.header("🚨 Tablero de Gestión")
     df_tablero = consultar_neon("SELECT * FROM tablero_control")
     
     if df_tablero is not None:
-        # Forzar decimales para ver gasto real de botellas
         df_tablero["venta_real"] = df_tablero["venta_real"].astype(float)
         
         c1, c2, c3 = st.columns(3)
@@ -89,7 +87,7 @@ elif opcion == "🚨 Tablero":
             column_order=("producto", "stock_actual", "promedio_venta_diario", "venta_real", "alerta", "pedido_sugerido")
         )
 
-# --- 5. CARGA DE DATOS (CSV SOFT) ---
+# --- 5. CARGA DE DATOS ---
 elif opcion == "📤 Carga de Datos":
     st.header("📤 Actualizar desde Soft")
     tab_csv, tab_manual = st.tabs(["Cargar CSV", "Entrada Manual"])
@@ -110,15 +108,14 @@ elif opcion == "📤 Carga de Datos":
         if st.button("Guardar"):
             st.success(f"Ajuste para {prod} guardado.")
 
-# --- 6. IA MULATO (ANALISTA 24/7) ---
+# --- 6. IA MULATO ---
 elif opcion == "🤖 IA Mulato":
     st.header("🤖 Asistente de Negocio")
     st.write("Analizo tu inventario en tiempo real para darte recomendaciones.")
 
-    # La IA lee la verdad de Neon
     df_contexto = consultar_neon("SELECT producto, stock_actual, alerta, venta_real FROM tablero_control")
     
-    pregunta = st.chat_input("Ejemplo: ¿Qué botellas debo pedir hoy según las ventas?")
+    pregunta = st.chat_input("Ejemplo: ¿Cuáles son los 5 productos con stock más bajo?")
     
     if pregunta and df_contexto is not None:
         contexto_datos = df_contexto.to_string(index=False)
@@ -126,14 +123,14 @@ elif opcion == "🤖 IA Mulato":
         Eres el administrador de 'El Mulato'. Con estos datos de inventario:
         {contexto_datos}
         
-        Responde a: {pregunta}
-        Sé directo y sugiere qué comprar o qué cuidar.
+        Responde a la pregunta del dueño: {pregunta}
+        Sé directo, breve y sugiere qué comprar o qué cuidar.
         """
         
-        with st.spinner("Analizando inventario..."):
+        with st.spinner("Consultando al analista..."):
             try:
                 response = model.generate_content(prompt)
                 st.markdown("### 💡 Recomendación:")
                 st.write(response.text)
             except Exception as e:
-                st.error(f"Error de conexión con la IA. Verifica tu API Key.")
+                st.error(f"Hubo un error con la IA: {e}")
