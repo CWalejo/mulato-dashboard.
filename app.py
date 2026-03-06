@@ -94,10 +94,13 @@ elif opcion == "📤 Carga de Datos":
     if archivo:
         st.info("Archivo detectado. Procesando integración...")
 
-# --- 6. IA MULATO (CONEXIÓN FORZADA PRO) ---
+# --- 6. IA MULATO (CONEXIÓN PURA POR HTTP - SIN ERRORES DE LIBRERÍA) ---
 elif opcion == "🤖 IA Mulato":
     st.header("🤖 Asistente de Negocio")
     st.write("Analizo tu inventario real para darte recomendaciones.")
+
+    import requests
+    import json
 
     df_contexto = consultar_neon("SELECT producto, stock_actual, alerta, venta_real FROM tablero_control")
     
@@ -106,27 +109,33 @@ elif opcion == "🤖 IA Mulato":
     if pregunta and df_contexto is not None:
         contexto_datos = df_contexto.to_string(index=False)
         
+        # URL DE PRODUCCIÓN FORZADA (V1)
+        url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={API_KEY}"
+        
+        payload = {
+            "contents": [{
+                "parts": [{
+                    "text": f"Eres el administrador del bar 'El Mulato'. Datos:\n{contexto_datos}\nPregunta: {pregunta}"
+                }]
+            }]
+        }
+        
+        headers = {'Content-Type': 'application/json'}
+        
         try:
-            # 1. Forzamos la configuración base
-            genai.configure(api_key="AIzaSyA7DUcZ7Bc2sEJGHFYkSBf-0bZDBR3a214")
-            
-            # 2. ATAQUE DIRECTO AL 404: 
-            # Reconfiguramos el cliente interno para que NO use v1beta bajo ninguna circunstancia
-            from google.generativeai import client
-            client.DEFAULT_API_VERSION = 'v1' 
-            
-            model_final = genai.GenerativeModel('gemini-1.5-flash')
-            
-            prompt = f"Eres el administrador de 'El Mulato'. Datos:\n{contexto_datos}\nPregunta: {pregunta}"
-            
-            with st.spinner("Analizando datos..."):
-                response = model_final.generate_content(prompt)
+            with st.spinner("Consultando al analista..."):
+                # Enviamos la petición directa por la "calle" v1
+                response = requests.post(url, headers=headers, data=json.dumps(payload))
+                res_json = response.json()
                 
-                if response:
+                # Extraemos la respuesta del formato de Google
+                if "candidates" in res_json:
+                    texto_respuesta = res_json["candidates"][0]["content"]["parts"][0]["text"]
                     st.markdown("### 💡 Recomendación:")
-                    st.write(response.text)
-                
+                    st.write(texto_respuesta)
+                else:
+                    # Si Google responde con error, aquí lo veremos detallado
+                    st.error(f"Error de Google: {res_json.get('error', {}).get('message', 'Error desconocido')}")
+                    
         except Exception as e:
-            # Si el error 404 v1beta vuelve a aparecer en este mensaje, 
-            # significa que la librería instalada es incompatible con la región.
-            st.error(f"Error detectado: {e}")
+            st.error(f"Error de red: {e}")
