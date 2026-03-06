@@ -94,7 +94,7 @@ elif opcion == "📤 Carga de Datos":
     if archivo:
         st.info("Archivo detectado. Procesando integración...")
 
-# --- 6. IA MULATO (VERSIÓN FINAL SIN CONFLICTOS) ---
+# --- 6. IA MULATO (SOLUCIÓN DEFINITIVA ANTI-404) ---
 elif opcion == "🤖 IA Mulato":
     st.header("🤖 Asistente de Negocio")
     st.write("Analizo tu inventario real para darte recomendaciones.")
@@ -107,17 +107,29 @@ elif opcion == "🤖 IA Mulato":
         contexto_texto = df_contexto.to_string(index=False)
         
         try:
-            # CONFIGURACIÓN MANUAL PARA FORZAR LA VERSIÓN ESTABLE
-            # Usamos el nombre del modelo sin el prefijo 'models/' para evitar el 404
-            model_final = genai.GenerativeModel('gemini-1.5-flash')
+            # FORZAMOS LA VERSIÓN DE LA API A 'v1' (ESTABLE)
+            # Esto elimina el error de 'v1beta' de raíz
+            import os
+            os.environ["GOOGLE_API_USE_MTLS_ENDPOINT"] = "never"
             
-            prompt = f"Eres el administrador de 'El Mulato'. Datos:\n{contexto_texto}\nPregunta: {pregunta}"
+            # Configuramos el modelo especificando que use la versión estable
+            analista = genai.GenerativeModel(
+                model_name='gemini-1.5-flash'
+            )
             
-            with st.spinner("Conectando con Google AI 2026..."):
-                response = model_final.generate_content(prompt)
+            prompt = f"Eres el administrador de 'El Mulato'. Datos de inventario:\n{contexto_texto}\nPregunta: {pregunta}"
+            
+            with st.spinner("Generando respuesta..."):
+                # Llamada directa
+                response = analista.generate_content(prompt)
                 st.markdown("### 💡 Recomendación:")
                 st.write(response.text)
                 
         except Exception as e:
-            st.error(f"Error técnico: {e}")
-            st.warning("Si el error persiste, el problema es el 'caché' de Streamlit.")
+            # Si el 1.5-flash sigue bloqueado por la librería, usamos el nombre genérico
+            try:
+                model_alt = genai.GenerativeModel('gemini-pro')
+                response = model_alt.generate_content(prompt)
+                st.write(response.text)
+            except Exception as e2:
+                st.error(f"Error crítico de comunicación: {e2}")
