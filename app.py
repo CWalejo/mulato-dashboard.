@@ -2,8 +2,6 @@ import streamlit as st
 import pandas as pd
 import psycopg2
 import plotly.express as px
-import requests
-import json
 
 # 1. Configuración de la Página
 st.set_page_config(page_title="El Mulato Hub", layout="wide", page_icon="🏢")
@@ -44,7 +42,6 @@ if opcion == "📈 Historial":
     st.header("📈 Historial de Ventas")
     df = consultar_neon("SELECT * FROM historial_ventas ORDER BY id ASC")
     if df is not None:
-        st.metric("Total Registros", len(df))
         st.dataframe(df, use_container_width=True, hide_index=True)
 
 elif opcion == "🍳 Recetas":
@@ -62,54 +59,54 @@ elif opcion == "📦 Maestro":
 elif opcion == "🚨 Tablero":
     st.header("🚨 Tablero de Gestión")
     
-    # Traemos los datos uniendo con las categorías del maestro si es necesario, 
-    # o simplemente ordenando si ya están en tablero_control.
     df_tablero = consultar_neon("SELECT * FROM tablero_control")
     
     if df_tablero is not None:
-        # Aseguramos que los números funcionen
-        df_tablero["venta_real"] = pd.to_numeric(df_tablero["venta_real"], errors='coerce').fillna(0)
-        df_tablero["stock_actual"] = pd.to_numeric(df_tablero["stock_actual"], errors='coerce').fillna(0)
+        # Forzamos que sean números con decimales
+        df_tablero["venta_real"] = pd.to_numeric(df_tablero["venta_real"], errors='coerce').fillna(0.0)
+        df_tablero["stock_actual"] = pd.to_numeric(df_tablero["stock_actual"], errors='coerce').fillna(0.0)
         
-        # KPIs de cabecera
         c1, c2, c3 = st.columns(3)
         criticos = len(df_tablero[df_tablero['alerta'].str.contains("🔴", na=False)])
         c1.metric("🔴 Alertas Críticas", criticos)
-        c2.metric("📦 Stock Total", int(df_tablero["stock_actual"].sum()))
+        c2.metric("📦 Stock Total", f"{df_tablero['stock_actual'].sum():.2f}")
         c3.success("Sincronización Neon OK")
 
         st.divider()
 
-        # --- MOSTRAR POR CATEGORÍAS (Usando la columna 'categoria' de tu Neon) ---
-        # Si tu tabla de Neon tiene la columna 'categoria', la usamos para agrupar:
-        if 'categoria' in df_tablero.columns:
-            categorias = ["Comida", "Aguardiente", "Ron", "Tequila", "Whisky", "Ginebra", "Vodka", "Vinos", "Otros Licores", "Cervezas", "Pasantes"]
-            
-            for cat in categorias:
+        # Categorías según el orden que establecimos
+        categorias = ["Comida", "Aguardiente", "Ron", "Tequila", "Whisky", "Ginebra", "Vodka", "Vinos", "Otros Licores", "Cervezas", "Pasantes"]
+        
+        for cat in categorias:
+            if 'categoria' in df_tablero.columns:
                 df_cat = df_tablero[df_tablero['categoria'] == cat]
-                if not df_cat.empty:
-                    with st.expander(f"📁 {cat.upper()}", expanded=True):
-                        st.dataframe(
-                            df_cat, 
-                            use_container_width=True, 
-                            hide_index=True,
-                            column_order=("alerta", "producto", "stock_actual", "venta_real", "pedido_sugerido")
-                        )
-        else:
-            # Si no hay columna categoria en el tablero, lo mostramos plano pero ordenado
-            st.dataframe(
-                df_tablero, 
-                use_container_width=True, 
-                hide_index=True,
-                column_order=("producto", "stock_actual", "venta_real", "alerta", "pedido_sugerido")
-            )
+            else:
+                # Si no existe la columna en tablero, mostramos todo
+                df_cat = df_tablero
+                if cat != "Comida": break # Evita repetir si no hay categorías
+
+            if not df_cat.empty:
+                with st.expander(f"📁 {cat.upper()}", expanded=True):
+                    st.dataframe(
+                        df_cat, 
+                        use_container_width=True, 
+                        hide_index=True,
+                        column_order=("alerta", "producto", "stock_actual", "venta_real", "pedido_sugerido"),
+                        column_config={
+                            "alerta": "Estado",
+                            "producto": "Insumo",
+                            "stock_actual": st.column_config.NumberColumn("Stock", format="%.2f"),
+                            "venta_real": st.column_config.NumberColumn("Venta Real (Shots/Und)", format="%.2f"),
+                            "pedido_sugerido": "Sugerencia"
+                        }
+                    )
 
 elif opcion == "📤 Carga de Datos":
     st.header("📤 Actualizar desde Soft")
     archivo = st.file_uploader("Subir reporte de Soft (CSV)", type=["csv"])
     if archivo:
-        st.info("Archivo recibido. Mañana activaremos la carga a Neon.")
+        st.info("Archivo recibido. Mañana activaremos el procesamiento.")
 
 elif opcion == "🤖 IA Mulato":
-    st.header("🤖 Asistente de Negocio")
-    st.warning("⚠️ Mantenimiento: Activaremos SistemAI mañana.")
+    st.header("🤖 IA Mulato")
+    st.warning("⚠️ Mantenimiento: Activaremos OpenAI mañana.")
