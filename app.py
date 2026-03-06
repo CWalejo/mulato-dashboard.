@@ -94,38 +94,42 @@ elif opcion == "📤 Carga de Datos":
     if archivo:
         st.info("Archivo detectado. Procesando integración...")
 
-# --- SECCIÓN IA (BLINDADA CONTRA ERROR 404) ---
+# --- 6. IA MULATO (VERSIÓN DEFINITIVA CORREGIDA) ---
 elif opcion == "🤖 IA Mulato":
     st.header("🤖 Asistente de Negocio")
     st.write("Analizo tu inventario real para darte recomendaciones.")
 
+    # 1. Consultamos los datos de la rama Pruebas
     df_contexto = consultar_neon("SELECT producto, stock_actual, alerta, venta_real FROM tablero_control")
     
-    pregunta = st.chat_input("¿Qué deseas consultar sobre el inventario?")
+    pregunta = st.chat_input("Ejemplo: ¿Cuáles son los 5 productos con stock más bajo?")
     
     if pregunta and df_contexto is not None:
+        # 2. Preparamos los datos para que la IA los entienda
         contexto_texto = df_contexto.to_string(index=False)
         
-        prompt = f"""
-        Actúa como el administrador del bar 'El Mulato'. 
-        Basándote en estos datos:
-        {contexto_texto}
-        
-        Pregunta: {pregunta}
-        Responde de forma ejecutiva y breve.
-        """
-        
-        with st.spinner("Analizando con Google AI..."):
-            try:
-                # Usamos una llamada directa para evitar que Streamlit use la versión beta
-                response = model.generate_content(prompt)
-                st.markdown("### 💡 Análisis del Asistente:")
+        # 3. Forzamos el uso del modelo estable para evitar el error 404 v1beta
+        try:
+            # Definimos el modelo dentro del bloque para asegurar frescura de conexión
+            analista_mulato = genai.GenerativeModel('gemini-1.5-flash')
+            
+            prompt = f"""
+            Actúa como el administrador experto del bar 'El Mulato'. 
+            Analiza estos datos de inventario:
+            {contexto_texto}
+            
+            Responde a la pregunta del dueño de forma ejecutiva y muy directa:
+            Pregunta: {pregunta}
+            """
+            
+            with st.spinner("Consultando al analista de Google AI..."):
+                # Llamada directa al modelo
+                response = analista_mulato.generate_content(prompt)
+                
+                st.markdown("### 💡 Recomendación:")
                 st.write(response.text)
-            except Exception as e:
-                # Si esto falla, intentamos con el nombre alternativo del modelo
-                try:
-                    alt_model = genai.GenerativeModel('gemini-pro')
-                    response = alt_model.generate_content(prompt)
-                    st.write(response.text)
-                except:
-                    st.error(f"Error técnico persistente: {e}")
+                
+        except Exception as e:
+            # Si el error persiste, mostramos una guía clara de solución
+            st.error(f"Error técnico: {e}")
+            st.info("⚠️ Si el error dice '404', por favor ve al panel de Streamlit Cloud y selecciona 'Reboot App' para forzar la actualización de la librería.")
