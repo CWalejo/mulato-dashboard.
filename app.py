@@ -55,53 +55,61 @@ elif opcion == "🍳 Recetas":
 
 elif opcion == "📦 Maestro":
     st.header("📦 Maestro de Insumos")
-    df = consultar_neon("SELECT * FROM maestro_insumos ORDER BY producto ASC")
+    df = consultar_neon("SELECT * FROM maestro_insumos")
     if df is not None:
         st.dataframe(df, use_container_width=True, hide_index=True)
 
 elif opcion == "🚨 Tablero":
     st.header("🚨 Tablero de Gestión")
+    
+    # Traemos los datos uniendo con las categorías del maestro si es necesario, 
+    # o simplemente ordenando si ya están en tablero_control.
     df_tablero = consultar_neon("SELECT * FROM tablero_control")
     
     if df_tablero is not None:
-        # Aseguramos que los números sean números
+        # Aseguramos que los números funcionen
         df_tablero["venta_real"] = pd.to_numeric(df_tablero["venta_real"], errors='coerce').fillna(0)
         df_tablero["stock_actual"] = pd.to_numeric(df_tablero["stock_actual"], errors='coerce').fillna(0)
         
-        # KPIs originales
+        # KPIs de cabecera
         c1, c2, c3 = st.columns(3)
-        criticos = len(df_tablero[df_tablero['alerta'].str.contains("🔴|CRÍTICO", na=False)])
-        pedir = len(df_tablero[df_tablero['alerta'].str.contains("🟡|PEDIR", na=False)])
-        
+        criticos = len(df_tablero[df_tablero['alerta'].str.contains("🔴", na=False)])
         c1.metric("🔴 Alertas Críticas", criticos)
-        c2.metric("🟡 Pedidos Pendientes", pedir)
+        c2.metric("📦 Stock Total", int(df_tablero["stock_actual"].sum()))
         c3.success("Sincronización Neon OK")
 
-        # --- Gráfica de apoyo (Solo si hay datos) ---
-        if not df_tablero.empty:
-            st.subheader("📊 Resumen Visual de Stock")
-            # Mostramos los 10 con menos stock según lo que trajo Neon
-            fig = px.bar(df_tablero.nsmallest(10, 'stock_actual'), 
-                         x='stock_actual', y='producto', orientation='h', 
-                         title="Top 10 Productos con Menos Stock",
-                         color='stock_actual', color_continuous_scale='Reds_r')
-            st.plotly_chart(fig, use_container_width=True)
+        st.divider()
 
-        # Tabla original con tus columnas de Neon
-        st.dataframe(
-            df_tablero, 
-            use_container_width=True, 
-            hide_index=True,
-            column_order=("producto", "stock_actual", "promedio_venta_diario", "venta_real", "alerta", "pedido_sugerido")
-        )
+        # --- MOSTRAR POR CATEGORÍAS (Usando la columna 'categoria' de tu Neon) ---
+        # Si tu tabla de Neon tiene la columna 'categoria', la usamos para agrupar:
+        if 'categoria' in df_tablero.columns:
+            categorias = ["Comida", "Aguardiente", "Ron", "Tequila", "Whisky", "Ginebra", "Vodka", "Vinos", "Otros Licores", "Cervezas", "Pasantes"]
+            
+            for cat in categorias:
+                df_cat = df_tablero[df_tablero['categoria'] == cat]
+                if not df_cat.empty:
+                    with st.expander(f"📁 {cat.upper()}", expanded=True):
+                        st.dataframe(
+                            df_cat, 
+                            use_container_width=True, 
+                            hide_index=True,
+                            column_order=("alerta", "producto", "stock_actual", "venta_real", "pedido_sugerido")
+                        )
+        else:
+            # Si no hay columna categoria en el tablero, lo mostramos plano pero ordenado
+            st.dataframe(
+                df_tablero, 
+                use_container_width=True, 
+                hide_index=True,
+                column_order=("producto", "stock_actual", "venta_real", "alerta", "pedido_sugerido")
+            )
 
 elif opcion == "📤 Carga de Datos":
     st.header("📤 Actualizar desde Soft")
     archivo = st.file_uploader("Subir reporte de Soft (CSV)", type=["csv"])
     if archivo:
-        st.info("Archivo detectado. Mañana configuraremos la integración con Neon.")
+        st.info("Archivo recibido. Mañana activaremos la carga a Neon.")
 
 elif opcion == "🤖 IA Mulato":
     st.header("🤖 Asistente de Negocio")
-    st.warning("⚠️ Sección en mantenimiento para conexión con OpenAI (Mañana).")
-    st.write("Usa el Tablero para ver tus datos reales de Neon mientras activamos la nueva IA.")
+    st.warning("⚠️ Mantenimiento: Activaremos OpenAI mañana.")
