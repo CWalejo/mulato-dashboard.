@@ -3,20 +3,17 @@ import pandas as pd
 import psycopg2
 import google.generativeai as genai
 import plotly.express as px
+import requests
+import json
 
 # 1. Configuración de la Página
 st.set_page_config(page_title="El Mulato Hub", layout="wide", page_icon="🏢")
 
-# --- CONEXIÓN A NEON (RAMA: PRUEBAS) ---
+# --- CONEXIÓN A NEON ---
 DB_URL = "postgresql://neondb_owner:npg_2YMloHQwec0b@ep-young-meadow-aicra7vo-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require"
 
-# --- CONFIGURACIÓN IA (VERSIÓN ESTABLE 2026) ---
-# Forzamos la API KEY y el modelo a la versión estable para evitar el error 404 v1beta
+# --- CONFIGURACIÓN IA ---
 API_KEY = "AIzaSyA7DUcZ7Bc2sEJGHFYkSBf-0bZDBR3a214"
-genai.configure(api_key=API_KEY)
-
-# Usamos el nombre de modelo que es compatible con la versión 0.8.3
-model = genai.GenerativeModel('gemini-1.5-flash')
 
 def consultar_neon(query):
     try:
@@ -94,13 +91,10 @@ elif opcion == "📤 Carga de Datos":
     if archivo:
         st.info("Archivo detectado. Procesando integración...")
 
-# --- 6. IA MULATO (CONEXIÓN PURA POR HTTP - SIN ERRORES DE LIBRERÍA) ---
+# --- 6. IA MULATO (CAMINO A: GEMINI-PRO) ---
 elif opcion == "🤖 IA Mulato":
     st.header("🤖 Asistente de Negocio")
     st.write("Analizo tu inventario real para darte recomendaciones.")
-
-    import requests
-    import json
 
     df_contexto = consultar_neon("SELECT producto, stock_actual, alerta, venta_real FROM tablero_control")
     
@@ -109,13 +103,13 @@ elif opcion == "🤖 IA Mulato":
     if pregunta and df_contexto is not None:
         contexto_datos = df_contexto.to_string(index=False)
         
-        # URL DE PRODUCCIÓN FORZADA (V1)
-        url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={API_KEY}"
+        # CAMBIO CLAVE: Usamos gemini-pro en lugar de gemini-1.5-flash
+        url = f"https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key={API_KEY}"
         
         payload = {
             "contents": [{
                 "parts": [{
-                    "text": f"Eres el administrador del bar 'El Mulato'. Datos:\n{contexto_datos}\nPregunta: {pregunta}"
+                    "text": f"Eres el administrador del bar 'El Mulato'. Datos de inventario:\n{contexto_datos}\nPregunta: {pregunta}"
                 }]
             }]
         }
@@ -123,19 +117,17 @@ elif opcion == "🤖 IA Mulato":
         headers = {'Content-Type': 'application/json'}
         
         try:
-            with st.spinner("Consultando al analista..."):
-                # Enviamos la petición directa por la "calle" v1
+            with st.spinner("Consultando al analista (Vía Gemini-Pro)..."):
                 response = requests.post(url, headers=headers, data=json.dumps(payload))
                 res_json = response.json()
                 
-                # Extraemos la respuesta del formato de Google
                 if "candidates" in res_json:
                     texto_respuesta = res_json["candidates"][0]["content"]["parts"][0]["text"]
                     st.markdown("### 💡 Recomendación:")
                     st.write(texto_respuesta)
                 else:
-                    # Si Google responde con error, aquí lo veremos detallado
-                    st.error(f"Error de Google: {res_json.get('error', {}).get('message', 'Error desconocido')}")
+                    error_msg = res_json.get('error', {}).get('message', 'Error desconocido')
+                    st.error(f"Error de Google: {error_msg}")
                     
         except Exception as e:
             st.error(f"Error de red: {e}")
