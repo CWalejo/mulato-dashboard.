@@ -13,7 +13,7 @@ st.set_page_config(page_title="El Mulato Hub", layout="wide", page_icon="🏢")
 DB_URL = "postgresql://neondb_owner:npg_2YMloHQwec0b@ep-young-meadow-aicra7vo-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require"
 
 # --- CONFIGURACIÓN IA ---
-API_KEY = "AIzaSyA7DUcZ7Bc2sEJGHFYkSBf-0bZDBR3a214"
+API_KEY = "AIzaSyCqwFemPJ1Ip6Ry7bULmjEZ6fM9Pl6t8x8"
 
 def consultar_neon(query):
     try:
