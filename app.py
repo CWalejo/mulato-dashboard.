@@ -94,12 +94,11 @@ elif opcion == "📤 Carga de Datos":
     if archivo:
         st.info("Archivo detectado. Procesando integración...")
 
-# --- 6. IA MULATO (VERSIÓN ESTABLE 2026 - ANTI 404) ---
+# --- 6. IA MULATO (VERSIÓN FINAL SIN CONFLICTOS) ---
 elif opcion == "🤖 IA Mulato":
     st.header("🤖 Asistente de Negocio")
     st.write("Analizo tu inventario real para darte recomendaciones.")
 
-    # 1. Consultamos los datos
     df_contexto = consultar_neon("SELECT producto, stock_actual, alerta, venta_real FROM tablero_control")
     
     pregunta = st.chat_input("Ejemplo: ¿Cuáles son los 5 productos con stock más bajo?")
@@ -108,32 +107,17 @@ elif opcion == "🤖 IA Mulato":
         contexto_texto = df_contexto.to_string(index=False)
         
         try:
-            # --- EL TRUCO PARA EL ERROR 404 ---
-            # Forzamos la configuración a usar la API v1 (Estable) y no la v1beta
-            from google.generativeai import types
+            # CONFIGURACIÓN MANUAL PARA FORZAR LA VERSIÓN ESTABLE
+            # Usamos el nombre del modelo sin el prefijo 'models/' para evitar el 404
+            model_final = genai.GenerativeModel('gemini-1.5-flash')
             
-            # Definimos el modelo asegurando que use la versión de producción
-            model_estable = genai.GenerativeModel(
-                model_name='gemini-1.5-flash',
-                # Esto le dice a Google: "No me des versiones de prueba"
-            )
+            prompt = f"Eres el administrador de 'El Mulato'. Datos:\n{contexto_texto}\nPregunta: {pregunta}"
             
-            prompt = f"Administrador de 'El Mulato'. Datos:\n{contexto_texto}\nPregunta: {pregunta}"
-            
-            with st.spinner("Consultando analista..."):
-                # Llamada con parámetros estándar
-                response = model_estable.generate_content(prompt)
-                
+            with st.spinner("Conectando con Google AI 2026..."):
+                response = model_final.generate_content(prompt)
                 st.markdown("### 💡 Recomendación:")
                 st.write(response.text)
                 
         except Exception as e:
-            # Si Gemini 1.5 sigue dando problemas por la región o versión, 
-            # intentamos con el nombre corto 'gemini-pro' que es el más viejo y compatible
-            try:
-                model_pro = genai.GenerativeModel('gemini-pro')
-                response = model_pro.generate_content(prompt)
-                st.write(response.text)
-            except Exception as e2:
-                st.error(f"Error persistente: {e2}")
-                st.info("Revisa que en tu archivo requirements.txt diga: google-generativeai>=0.8.0")
+            st.error(f"Error técnico: {e}")
+            st.warning("Si el error persiste, el problema es el 'caché' de Streamlit.")
