@@ -94,38 +94,46 @@ elif opcion == "📤 Carga de Datos":
     if archivo:
         st.info("Archivo detectado. Procesando integración...")
 
-# --- SECCIÓN IA (BLINDADA CONTRA ERROR 404) ---
+# --- 6. IA MULATO (OPERACIÓN VICTORIA 2026) ---
 elif opcion == "🤖 IA Mulato":
     st.header("🤖 Asistente de Negocio")
     st.write("Analizo tu inventario real para darte recomendaciones.")
 
+    # Consultamos la verdad de Neon
     df_contexto = consultar_neon("SELECT producto, stock_actual, alerta, venta_real FROM tablero_control")
     
-    pregunta = st.chat_input("¿Qué deseas consultar sobre el inventario?")
+    pregunta = st.chat_input("¿Qué quieres saber de tu inventario?")
     
     if pregunta and df_contexto is not None:
-        contexto_texto = df_contexto.to_string(index=False)
+        contexto_datos = df_contexto.to_string(index=False)
         
-        prompt = f"""
-        Actúa como el administrador del bar 'El Mulato'. 
-        Basándote en estos datos:
-        {contexto_texto}
-        
-        Pregunta: {pregunta}
-        Responde de forma ejecutiva y breve.
-        """
-        
-        with st.spinner("Analizando con Google AI..."):
-            try:
-                # Usamos una llamada directa para evitar que Streamlit use la versión beta
-                response = model.generate_content(prompt)
-                st.markdown("### 💡 Análisis del Asistente:")
-                st.write(response.text)
-            except Exception as e:
-                # Si esto falla, intentamos con el nombre alternativo del modelo
-                try:
-                    alt_model = genai.GenerativeModel('gemini-pro')
-                    response = alt_model.generate_content(prompt)
+        try:
+            # CONFIGURACIÓN DE FUERZA BRUTA PARA EVITAR EL 404
+            # Usamos el transporte 'rest' para saltarnos los túneles viejos de Streamlit
+            genai.configure(api_key="AIzaSyA7DUcZ7Bc2sEJGHFYkSBf-0bZDBR3a214", transport='rest')
+            
+            # Llamamos al modelo por su nombre corto oficial
+            model_victoria = genai.GenerativeModel('gemini-1.5-flash')
+            
+            prompt = f"""
+            Eres el administrador del bar 'El Mulato'. 
+            Datos actuales:
+            {contexto_datos}
+            
+            Responde de forma profesional: {pregunta}
+            """
+            
+            with st.spinner("Conectando con el cerebro de Google..."):
+                # Generación de contenido sin parámetros extra que causen conflicto
+                response = model_victoria.generate_content(prompt)
+                
+                if response.text:
+                    st.markdown("### 💡 Análisis del Mulato:")
                     st.write(response.text)
-                except:
-                    st.error(f"Error técnico persistente: {e}")
+                else:
+                    st.warning("Google recibió la pregunta pero la respuesta llegó vacía.")
+                
+        except Exception as e:
+            # Si sale el 404 aquí, capturamos el mensaje exacto para el diagnóstico final
+            st.error(f"Error de conexión: {e}")
+            st.info("Nota: Si persiste el 404 v1beta, el Paso 3 (Reboot) es obligatorio.")
