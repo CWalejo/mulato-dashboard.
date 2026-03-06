@@ -112,4 +112,4 @@ elif opcion == "📤 Carga de Datos":
 
 elif opcion == "🤖 IA Mulato":
     st.header("🤖 Asistente de Negocio")
-    st.warning("⚠️ Mantenimiento: Activaremos OpenAI mañana.")
+    st.warning("⚠️ Mantenimiento: Activaremos SistemAI mañana.")
