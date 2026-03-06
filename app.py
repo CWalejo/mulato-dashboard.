@@ -3,7 +3,7 @@ import pandas as pd
 import psycopg2
 import plotly.express as px
 
-# 1. Configuración de la Página (Usa st.set_page_config de tu lista)
+# 1. Configuración de la Página
 st.set_page_config(page_title="El Mulato Hub", layout="wide", page_icon="🏢")
 
 # --- CONEXIÓN A NEON ---
@@ -19,7 +19,7 @@ def consultar_neon(query):
         st.error(f"❌ Error de conexión: {e}")
         return None
 
-# --- SEGURIDAD (Usa st.session_state y st.text_input) ---
+# --- SEGURIDAD ---
 if 'autenticado' not in st.session_state:
     st.session_state['autenticado'] = False
 
@@ -32,7 +32,7 @@ if not st.session_state['autenticado']:
             st.rerun()
     st.stop()
 
-# --- MENÚ LATERAL (Usa st.sidebar) ---
+# --- MENÚ LATERAL ---
 st.sidebar.title("🏢 El Mulato Hub")
 opcion = st.sidebar.radio("Navegación:", 
     ["📈 Historial", "🍳 Recetas", "📦 Maestro", "🚨 Tablero", "📤 Carga de Datos", "🤖 IA Mulato"])
@@ -62,11 +62,11 @@ elif opcion == "🚨 Tablero":
     df_tablero = consultar_neon("SELECT * FROM tablero_control")
     
     if df_tablero is not None:
-        # Limpieza de datos (usando pandas)
+        # Limpieza de datos automática para evitar ceros por error de formato
         df_tablero["venta_real"] = pd.to_numeric(df_tablero["venta_real"], errors='coerce').fillna(0)
         df_tablero["stock_actual"] = pd.to_numeric(df_tablero["stock_actual"], errors='coerce').fillna(0)
 
-        # --- KPIs (Usa st.columns y st.metric) ---
+        # --- KPIs (Tarjetas de resumen) ---
         c1, c2, c3, c4 = st.columns(4)
         criticos = len(df_tablero[df_tablero['alerta'].str.contains("🔴|CRÍTICO", na=False)])
         pedir = len(df_tablero[df_tablero['alerta'].str.contains("🟡|PEDIR", na=False)])
@@ -75,11 +75,11 @@ elif opcion == "🚨 Tablero":
         c1.metric("🚨 CRÍTICOS", criticos, delta=f"{criticos} urgentes", delta_color="inverse")
         c2.metric("🟡 POR PEDIR", pedir)
         c3.metric("📦 STOCK TOTAL", int(stock_total))
-        c4.success("✅ Sincronizado")
+        c4.success("✅ Neon Conectado")
 
-        st.divider() # Usa st.divider de tu lista
+        st.divider()
 
-        # --- GRÁFICOS (Usa st.plotly_chart) ---
+        # --- GRÁFICOS ---
         col_izq, col_der = st.columns([1, 1])
 
         with col_izq:
@@ -87,7 +87,7 @@ elif opcion == "🚨 Tablero":
             df_bajos = df_tablero.nsmallest(10, "stock_actual")
             fig_stock = px.bar(df_bajos, x="stock_actual", y="producto", orientation='h',
                               color="stock_actual", color_continuous_scale="Reds_r", text_auto=True)
-            fig_stock.update_layout(showlegend=False, height=350)
+            fig_stock.update_layout(showlegend=False, height=350, yaxis={'categoryorder':'total descending'})
             st.plotly_chart(fig_stock, use_container_width=True)
 
         with col_der:
@@ -97,28 +97,30 @@ elif opcion == "🚨 Tablero":
             fig_ventas.update_layout(height=350)
             st.plotly_chart(fig_ventas, use_container_width=True)
 
-        # --- TABLA DETALLADA (Usa st.dataframe con column_config) ---
+        # --- TABLA DETALLADA ---
         st.markdown("### 📋 Detalle de Alertas")
         st.dataframe(
             df_tablero.sort_values(by="stock_actual"), 
             use_container_width=True, 
             hide_index=True,
             column_config={
-                "stock_actual": st.column_config.NumberColumn("Stock", format="%d 📦"),
-                "alerta": "Estado"
+                "stock_actual": st.column_config.NumberColumn("Stock Bodega", format="%d 📦"),
+                "alerta": "Estado",
+                "venta_real": "Ventas"
             },
             column_order=("alerta", "producto", "stock_actual", "venta_real", "pedido_sugerido")
         )
 
 elif opcion == "📤 Carga de Datos":
     st.header("📤 Actualizar desde Soft")
-    st.info("Configuraremos los 'INSERT' en Neon mañana para habilitar la memoria de la IA.")
+    st.info("Esta sección habilitará el aprendizaje de la IA mediante el guardado del historial semanal.")
     archivo = st.file_uploader("Subir reporte de Soft (CSV)", type=["csv"])
     if archivo:
-        st.toast("Archivo recibido correctamente", icon="📥") # Usa st.toast de tu lista
+        st.toast("Archivo recibido correctamente", icon="📥")
+        st.success("Mañana configuraremos la carga automática a la base de datos.")
 
 elif opcion == "🤖 IA Mulato":
     st.header("🤖 Asistente de Negocio")
-    st.warning("⚠️ Migrando motor a OpenAI para mayor estabilidad.")
-    st.write("Mañana conectaremos la API Key para activar el análisis histórico.")
-    st.chat_input("Deshabilitado temporalmente...", disabled=True)
+    st.warning("⚠️ Mantenimiento: Migrando motor a OpenAI para mayor precisión.")
+    st.write("Estamos configurando el analista inteligente para El Mulato. Estará activo mañana.")
+    st.chat_input("Pregúntame mañana cuando la llave esté lista...", disabled=True)
