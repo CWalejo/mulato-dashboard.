@@ -94,12 +94,11 @@ elif opcion == "📤 Carga de Datos":
     if archivo:
         st.info("Archivo detectado. Procesando integración...")
 
-# --- 6. IA MULATO (OPERACIÓN VICTORIA 2026) ---
+# --- 6. IA MULATO (CONEXIÓN FORZADA PRO) ---
 elif opcion == "🤖 IA Mulato":
     st.header("🤖 Asistente de Negocio")
     st.write("Analizo tu inventario real para darte recomendaciones.")
 
-    # Consultamos la verdad de Neon
     df_contexto = consultar_neon("SELECT producto, stock_actual, alerta, venta_real FROM tablero_control")
     
     pregunta = st.chat_input("¿Qué quieres saber de tu inventario?")
@@ -108,32 +107,26 @@ elif opcion == "🤖 IA Mulato":
         contexto_datos = df_contexto.to_string(index=False)
         
         try:
-            # CONFIGURACIÓN DE FUERZA BRUTA PARA EVITAR EL 404
-            # Usamos el transporte 'rest' para saltarnos los túneles viejos de Streamlit
-            genai.configure(api_key="AIzaSyA7DUcZ7Bc2sEJGHFYkSBf-0bZDBR3a214", transport='rest')
+            # 1. Forzamos la configuración base
+            genai.configure(api_key="AIzaSyA7DUcZ7Bc2sEJGHFYkSBf-0bZDBR3a214")
             
-            # Llamamos al modelo por su nombre corto oficial
-            model_victoria = genai.GenerativeModel('gemini-1.5-flash')
+            # 2. ATAQUE DIRECTO AL 404: 
+            # Reconfiguramos el cliente interno para que NO use v1beta bajo ninguna circunstancia
+            from google.generativeai import client
+            client.DEFAULT_API_VERSION = 'v1' 
             
-            prompt = f"""
-            Eres el administrador del bar 'El Mulato'. 
-            Datos actuales:
-            {contexto_datos}
+            model_final = genai.GenerativeModel('gemini-1.5-flash')
             
-            Responde de forma profesional: {pregunta}
-            """
+            prompt = f"Eres el administrador de 'El Mulato'. Datos:\n{contexto_datos}\nPregunta: {pregunta}"
             
-            with st.spinner("Conectando con el cerebro de Google..."):
-                # Generación de contenido sin parámetros extra que causen conflicto
-                response = model_victoria.generate_content(prompt)
+            with st.spinner("Analizando datos..."):
+                response = model_final.generate_content(prompt)
                 
-                if response.text:
-                    st.markdown("### 💡 Análisis del Mulato:")
+                if response:
+                    st.markdown("### 💡 Recomendación:")
                     st.write(response.text)
-                else:
-                    st.warning("Google recibió la pregunta pero la respuesta llegó vacía.")
                 
         except Exception as e:
-            # Si sale el 404 aquí, capturamos el mensaje exacto para el diagnóstico final
-            st.error(f"Error de conexión: {e}")
-            st.info("Nota: Si persiste el 404 v1beta, el Paso 3 (Reboot) es obligatorio.")
+            # Si el error 404 v1beta vuelve a aparecer en este mensaje, 
+            # significa que la librería instalada es incompatible con la región.
+            st.error(f"Error detectado: {e}")
