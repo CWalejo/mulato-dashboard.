@@ -60,40 +60,51 @@ elif opcion == "📦 Maestro":
         st.dataframe(df, use_container_width=True, hide_index=True)
 
 elif opcion == "🚨 Tablero":
-    st.header("🚨 Tablero de Gestión")
+    st.header("🚨 Tablero de Gestión - Control de Merma")
     
-    # Consulta con tus columnas reales incluyendo promedio_venta_diario
-    df_tablero = consultar_neon("SELECT producto, stock_actual, promedio_venta_diario, venta_real, alerta, pedido_sugerido FROM tablero_control")
+    # 1. Traemos los datos base
+    df_maestro = consultar_neon("SELECT producto, stock_actual, promedio_venta_diario, alerta FROM tablero_control")
+    df_recetas = consultar_neon("SELECT nombre_plato, insumo, cantidad_gastada FROM recetas")
+    df_ventas = consultar_neon("SELECT producto, cantidad_vendida FROM historial_ventas")
     
-    if df_tablero is not None:
-        # Forzamos decimales para precisión de shots (0.09)
-        df_tablero["venta_real"] = pd.to_numeric(df_tablero["venta_real"], errors='coerce').fillna(0.0)
-        df_tablero["stock_actual"] = pd.to_numeric(df_tablero["stock_actual"], errors='coerce').fillna(0.0)
-        df_tablero["promedio_venta_diario"] = pd.to_numeric(df_tablero["promedio_venta_diario"], errors='coerce').fillna(0.0)
+    if df_maestro is not None and df_recetas is not None and df_ventas is not None:
+        # 2. CALCULAMOS LA VENTA REAL EN DECIMALES (MERMA)
+        # Unimos ventas con recetas para saber cuánto de cada insumo se gastó
+        ventas_con_receta = df_ventas.merge(df_recetas, left_on='producto', right_on='nombre_plato')
+        ventas_con_receta['merma_total'] = ventas_con_receta['cantidad_vendida'] * ventas_con_receta['cantidad_gastada']
         
-        # KPIs Superiores
-        c1, c2 = st.columns(2)
-        # Filtramos alertas críticas basándonos en tu columna 'alerta'
-        criticos = len(df_tablero[df_tablero['alerta'].str.contains("CRÍTICO|🔴", na=False)])
+        # Agrupamos por insumo para tener el total gastado por botella
+        resumen_merma = ventas_con_receta.groupby('insumo')['merma_total'].sum().reset_index()
         
+        # 3. UNIMOS AL TABLERO PRINCIPAL
+        df_final = df_maestro.merge(resumen_merma, left_on='producto', right_on='insumo', how='left')
+        df_final['venta_real'] = df_final['merma_total'].fillna(0.0)
+        
+        # 4. Cálculo de pedido sugerido basado en tu promedio diario
+        df_final['pedido_sugerido'] = (df_final['promedio_venta_diario'] * 7) - df_final['stock_actual']
+        df_final.loc[df_final['pedido_sugerido'] < 0, 'pedido_sugerido'] = 0
+
+        # KPIs superiores
+        c1, c2, c3 = st.columns(3)
+        criticos = len(df_final[df_final['alerta'].str.contains("CRÍTICO|🔴", na=False)])
         c1.metric("🔴 Alertas Críticas", criticos)
-        c2.metric("📦 Stock Total", f"{df_tablero['stock_actual'].sum():.2f}")
+        c2.metric("📦 Stock Total", f"{df_final['stock_actual'].sum():.2f}")
+        c3.success("Merma calculada (0.09/shot)")
 
         st.divider()
 
-        # Tabla única organizada (sin el error de categoría)
+        # Mostramos la tabla con los decimales correctos
         st.dataframe(
-            df_tablero, 
-            use_container_width=True, 
+            df_final,
+            use_container_width=True,
             hide_index=True,
-            column_order=("alerta", "producto", "stock_actual", "promedio_venta_diario", "venta_real", "pedido_sugerido"),
+            column_order=("alerta", "producto", "stock_actual", "venta_real", "pedido_sugerido"),
             column_config={
                 "alerta": "Estado",
                 "producto": "Insumo",
-                "stock_actual": st.column_config.NumberColumn("Stock (Bodega+Barra)", format="%.2f"),
-                "promedio_venta_diario": st.column_config.NumberColumn("Prom. Diario", format="%.2f"),
-                "venta_real": st.column_config.NumberColumn("Venta Real", format="%.2f"),
-                "pedido_sugerido": "Sugerencia"
+                "stock_actual": st.column_config.NumberColumn("Stock Actual", format="%.2f"),
+                "venta_real": st.column_config.NumberColumn("Merma (Botellas)", format="%.2f"),
+                "pedido_sugerido": st.column_config.NumberColumn("Sugerido", format="%.2f")
             }
         )
 
