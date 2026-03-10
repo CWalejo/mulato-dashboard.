@@ -108,5 +108,38 @@ elif opcion == "📤 Carga de Datos":
         st.info("Archivo recibido. Mañana activaremos el procesamiento.")
 
 elif opcion == "🤖 IA Mulato":
-    st.header("🤖 IA Mulato")
-    st.warning("⚠️ Mantenimiento: Activaremos OpenAI mañana.")
+    st.header("🤖 Consultor Estratégico El Mulato")
+    
+    # Intentamos cargar la llave desde los Secrets seguros
+    try:
+        api_key_openai = st.secrets["OPENAI_API_KEY"]
+    except:
+        st.error("🔑 Error: No se encontró la OPENAI_API_KEY en los Secrets de Streamlit.")
+        st.stop()
+
+    # Traemos los datos de Neon (Recetas de 0.09 y Inventario)
+    df_inv = consultar_neon("SELECT categoria, producto, stock_actual, venta_real, alerta FROM tablero_control")
+    df_rec = consultar_neon("SELECT nombre_plato, insumo, cantidad_gastada FROM recetas")
+    
+    pregunta = st.chat_input("Ej: ¿Cuántos Gin Tonic puedo vender con lo que hay?")
+    
+    if pregunta:
+        if df_inv is not None and df_rec is not None:
+            contexto_ia = f"STOCK:\n{df_inv.to_string()}\n\nRECETAS:\n{df_rec.to_string()}"
+            
+            headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key_openai}"}
+            payload = {
+                "model": "gpt-4o-mini",
+                "messages": [
+                    {"role": "system", "content": "Eres el socio analista de El Mulato. Usa los decimales 0.09 de las recetas para calcular ventas posibles."},
+                    {"role": "user", "content": f"Datos:\n{contexto_ia}\n\nPregunta: {pregunta}"}
+                ],
+                "temperature": 0.2
+            }
+            
+            with st.spinner("Analizando con IA..."):
+                res = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
+                if res.status_code == 200:
+                    st.info(res.json()["choices"][0]["message"]["content"])
+                else:
+                    st.error("Revisa el saldo de tu cuenta de OpenAI (Billing).")
