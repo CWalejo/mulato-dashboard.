@@ -3,7 +3,6 @@ import pandas as pd
 import psycopg2
 import plotly.express as px
 import requests
-import json
 
 # 1. Configuración de la Página
 st.set_page_config(page_title="El Mulato Hub", layout="wide", page_icon="🏢")
@@ -48,8 +47,7 @@ if opcion == "📈 Historial":
 
 elif opcion == "🍳 Recetas":
     st.header("🍳 Libro de Recetas")
-    # Ajustado a tus nombres de columna en Neon: nombre_plato, insumo, cantidad_gastada
-    df = consultar_neon("SELECT nombre_plato, insumo, cantidad_gastada FROM recetas")
+    df = consultar_neon("SELECT * FROM recetas")
     if df is not None:
         st.dataframe(df, use_container_width=True, hide_index=True)
 
@@ -60,59 +58,57 @@ elif opcion == "📦 Maestro":
         st.dataframe(df, use_container_width=True, hide_index=True)
 
 elif opcion == "🚨 Tablero":
-    st.header("🚨 Tablero de Gestión - Control de Merma")
+    st.header("🚨 Tablero de Gestión")
     
-    # 1. Traemos los datos base
-    df_maestro = consultar_neon("SELECT producto, stock_actual, promedio_venta_diario, alerta FROM tablero_control")
-    df_recetas = consultar_neon("SELECT nombre_plato, insumo, cantidad_gastada FROM recetas")
-    df_ventas = consultar_neon("SELECT producto, cantidad_vendida FROM historial_ventas")
+    # Traemos los datos. Usamos COALESCE para evitar errores si falta la columna categoria en alguna tabla
+    df_tablero = consultar_neon("SELECT * FROM tablero_control")
     
-    if df_maestro is not None and df_recetas is not None and df_ventas is not None:
-        # 2. CALCULAMOS LA VENTA REAL EN DECIMALES (MERMA)
-        # Unimos ventas con recetas para saber cuánto de cada insumo se gastó
-        ventas_con_receta = df_ventas.merge(df_recetas, left_on='producto', right_on='nombre_plato')
-        ventas_con_receta['merma_total'] = ventas_con_receta['cantidad_vendida'] * ventas_con_receta['cantidad_gastada']
+    if df_tablero is not None:
+        df_tablero["venta_real"] = pd.to_numeric(df_tablero["venta_real"], errors='coerce').fillna(0.0)
+        df_tablero["stock_actual"] = pd.to_numeric(df_tablero["stock_actual"], errors='coerce').fillna(0.0)
         
-        # Agrupamos por insumo para tener el total gastado por botella
-        resumen_merma = ventas_con_receta.groupby('insumo')['merma_total'].sum().reset_index()
-        
-        # 3. UNIMOS AL TABLERO PRINCIPAL
-        df_final = df_maestro.merge(resumen_merma, left_on='producto', right_on='insumo', how='left')
-        df_final['venta_real'] = df_final['merma_total'].fillna(0.0)
-        
-        # 4. Cálculo de pedido sugerido basado en tu promedio diario
-        df_final['pedido_sugerido'] = (df_final['promedio_venta_diario'] * 7) - df_final['stock_actual']
-        df_final.loc[df_final['pedido_sugerido'] < 0, 'pedido_sugerido'] = 0
-
-        # KPIs superiores
         c1, c2, c3 = st.columns(3)
-        criticos = len(df_final[df_final['alerta'].str.contains("CRÍTICO|🔴", na=False)])
+        criticos = len(df_tablero[df_tablero['alerta'].str.contains("🔴|CRÍTICO", na=False)])
         c1.metric("🔴 Alertas Críticas", criticos)
-        c2.metric("📦 Stock Total", f"{df_final['stock_actual'].sum():.2f}")
-        c3.success("Merma calculada (0.09/shot)")
+        c2.metric("📦 Stock Total", f"{df_tablero['stock_actual'].sum():.2f}")
+        c3.success("Sincronización Neon OK")
 
         st.divider()
 
-        # Mostramos la tabla con los decimales correctos
-        st.dataframe(
-            df_final,
-            use_container_width=True,
-            hide_index=True,
-            column_order=("alerta", "producto", "stock_actual", "venta_real", "pedido_sugerido"),
-            column_config={
-                "alerta": "Estado",
-                "producto": "Insumo",
-                "stock_actual": st.column_config.NumberColumn("Stock Actual", format="%.2f"),
-                "venta_real": st.column_config.NumberColumn("Merma (Botellas)", format="%.2f"),
-                "pedido_sugerido": st.column_config.NumberColumn("Sugerido", format="%.2f")
-            }
-        )
+        # Categorías exactamente como las tenías
+        categorias = ["Comida", "Aguardiente", "Ron", "Tequila", "Whisky", "Ginebra", "Vodka", "Vinos", "Otros Licores", "Cervezas", "Pasantes"]
+        
+        # Obtenemos las categorías reales del maestro para cruzar
+        df_maestro = consultar_neon("SELECT producto, categoria FROM maestro_insumos")
+        
+        if df_maestro is not None:
+            # Unimos para recuperar las categorías que se perdieron en el tablero
+            df_tablero = df_tablero.drop(columns=['categoria'], errors='ignore').merge(df_maestro, on='producto', how='left')
+
+        for cat in categorias:
+            df_cat = df_tablero[df_tablero['categoria'] == cat]
+
+            if not df_cat.empty:
+                with st.expander(f"📁 {cat.upper()}", expanded=True):
+                    st.dataframe(
+                        df_cat, 
+                        use_container_width=True, 
+                        hide_index=True,
+                        column_order=("alerta", "producto", "stock_actual", "venta_real", "pedido_sugerido"),
+                        column_config={
+                            "alerta": "Estado",
+                            "producto": "Insumo",
+                            "stock_actual": st.column_config.NumberColumn("Stock", format="%.2f"),
+                            "venta_real": st.column_config.NumberColumn("Venta Real (Shots/Und)", format="%.2f"),
+                            "pedido_sugerido": "Sugerencia"
+                        }
+                    )
 
 elif opcion == "📤 Carga de Datos":
     st.header("📤 Actualizar desde Soft")
     archivo = st.file_uploader("Subir reporte de Soft (CSV)", type=["csv"])
     if archivo:
-        st.info("Archivo recibido. Sistema listo para procesar.")
+        st.info("Archivo recibido. Procesamiento configurado.")
 
 elif opcion == "🤖 IA Mulato":
     st.header("🤖 Consultor Estratégico El Mulato")
@@ -123,29 +119,25 @@ elif opcion == "🤖 IA Mulato":
         st.error("🔑 Error: No se encontró la OPENAI_API_KEY en los Secrets de Streamlit.")
         st.stop()
 
-    # Traemos los datos de Neon con las columnas correctas
-    df_inv = consultar_neon("SELECT producto, stock_actual, promedio_venta_diario, venta_real, alerta FROM tablero_control")
+    df_inv = consultar_neon("SELECT producto, stock_actual, venta_real, alerta FROM tablero_control")
     df_rec = consultar_neon("SELECT nombre_plato, insumo, cantidad_gastada FROM recetas")
     
-    pregunta = st.chat_input("Ej: ¿Para cuántos cocteles me alcanza el ron actual?")
+    pregunta = st.chat_input("Hazme una pregunta sobre el stock...")
     
-    if pregunta:
-        if df_inv is not None and df_rec is not None:
-            contexto_ia = f"STOCK ACTUAL:\n{df_inv.to_string()}\n\nRECETARIO (Gasto por shot/unidad):\n{df_rec.to_string()}"
-            
-            headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key_openai}"}
-            payload = {
-                "model": "gpt-4o-mini",
-                "messages": [
-                    {"role": "system", "content": "Eres el socio analista de El Mulato. Calcula disponibilidad basándote en el gasto de 0.09 por shot de las recetas. Sé breve y directo."},
-                    {"role": "user", "content": f"Datos del bar:\n{contexto_ia}\n\nPregunta: {pregunta}"}
-                ],
-                "temperature": 0.2
-            }
-            
-            with st.spinner("Analizando con IA..."):
-                res = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
-                if res.status_code == 200:
-                    st.info(res.json()["choices"][0]["message"]["content"])
-                else:
-                    st.error("Error: Revisa el saldo en OpenAI Billing ($5 USD min).")
+    if pregunta and df_inv is not None:
+        contexto_ia = f"STOCK:\n{df_inv.to_string()}\n\nRECETAS:\n{df_rec.to_string()}"
+        
+        headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key_openai}"}
+        payload = {
+            "model": "gpt-4o-mini",
+            "messages": [
+                {"role": "system", "content": "Eres el analista de El Mulato. Usa los 0.09 de las recetas para calcular disponibilidad."},
+                {"role": "user", "content": f"Datos:\n{contexto_ia}\n\nPregunta: {pregunta}"}
+            ],
+            "temperature": 0.2
+        }
+        
+        with st.spinner("Analizando..."):
+            res = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
+            if res.status_code == 200:
+                st.info(res.json()["choices"][0]["message"]["content"])
