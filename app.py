@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import psycopg2
 import plotly.express as px
+import requests
+import json
 
 # 1. Configuración de la Página
 st.set_page_config(page_title="El Mulato Hub", layout="wide", page_icon="🏢")
@@ -46,7 +48,8 @@ if opcion == "📈 Historial":
 
 elif opcion == "🍳 Recetas":
     st.header("🍳 Libro de Recetas")
-    df = consultar_neon("SELECT * FROM recetas")
+    # Ajustado a tus nombres de columna en Neon: nombre_plato, insumo, cantidad_gastada
+    df = consultar_neon("SELECT nombre_plato, insumo, cantidad_gastada FROM recetas")
     if df is not None:
         st.dataframe(df, use_container_width=True, hide_index=True)
 
@@ -59,80 +62,72 @@ elif opcion == "📦 Maestro":
 elif opcion == "🚨 Tablero":
     st.header("🚨 Tablero de Gestión")
     
-    df_tablero = consultar_neon("SELECT * FROM tablero_control")
+    # Consulta con tus columnas reales incluyendo promedio_venta_diario
+    df_tablero = consultar_neon("SELECT producto, stock_actual, promedio_venta_diario, venta_real, alerta, pedido_sugerido FROM tablero_control")
     
     if df_tablero is not None:
-        # Forzamos que sean números con decimales
+        # Forzamos decimales para precisión de shots (0.09)
         df_tablero["venta_real"] = pd.to_numeric(df_tablero["venta_real"], errors='coerce').fillna(0.0)
         df_tablero["stock_actual"] = pd.to_numeric(df_tablero["stock_actual"], errors='coerce').fillna(0.0)
+        df_tablero["promedio_venta_diario"] = pd.to_numeric(df_tablero["promedio_venta_diario"], errors='coerce').fillna(0.0)
         
-        c1, c2, c3 = st.columns(3)
-        criticos = len(df_tablero[df_tablero['alerta'].str.contains("🔴", na=False)])
+        # KPIs Superiores
+        c1, c2 = st.columns(2)
+        # Filtramos alertas críticas basándonos en tu columna 'alerta'
+        criticos = len(df_tablero[df_tablero['alerta'].str.contains("CRÍTICO|🔴", na=False)])
+        
         c1.metric("🔴 Alertas Críticas", criticos)
         c2.metric("📦 Stock Total", f"{df_tablero['stock_actual'].sum():.2f}")
-        c3.success("Sincronización Neon OK")
 
         st.divider()
 
-        # Categorías según el orden que establecimos
-        categorias = ["Comida", "Aguardiente", "Ron", "Tequila", "Whisky", "Ginebra", "Vodka", "Vinos", "Otros Licores", "Cervezas", "Pasantes"]
-        
-        for cat in categorias:
-            if 'categoria' in df_tablero.columns:
-                df_cat = df_tablero[df_tablero['categoria'] == cat]
-            else:
-                # Si no existe la columna en tablero, mostramos todo
-                df_cat = df_tablero
-                if cat != "Comida": break # Evita repetir si no hay categorías
-
-            if not df_cat.empty:
-                with st.expander(f"📁 {cat.upper()}", expanded=True):
-                    st.dataframe(
-                        df_cat, 
-                        use_container_width=True, 
-                        hide_index=True,
-                        column_order=("alerta", "producto", "stock_actual", "venta_real", "pedido_sugerido"),
-                        column_config={
-                            "alerta": "Estado",
-                            "producto": "Insumo",
-                            "stock_actual": st.column_config.NumberColumn("Stock", format="%.2f"),
-                            "venta_real": st.column_config.NumberColumn("Venta Real (Shots/Und)", format="%.2f"),
-                            "pedido_sugerido": "Sugerencia"
-                        }
-                    )
+        # Tabla única organizada (sin el error de categoría)
+        st.dataframe(
+            df_tablero, 
+            use_container_width=True, 
+            hide_index=True,
+            column_order=("alerta", "producto", "stock_actual", "promedio_venta_diario", "venta_real", "pedido_sugerido"),
+            column_config={
+                "alerta": "Estado",
+                "producto": "Insumo",
+                "stock_actual": st.column_config.NumberColumn("Stock (Bodega+Barra)", format="%.2f"),
+                "promedio_venta_diario": st.column_config.NumberColumn("Prom. Diario", format="%.2f"),
+                "venta_real": st.column_config.NumberColumn("Venta Real", format="%.2f"),
+                "pedido_sugerido": "Sugerencia"
+            }
+        )
 
 elif opcion == "📤 Carga de Datos":
     st.header("📤 Actualizar desde Soft")
     archivo = st.file_uploader("Subir reporte de Soft (CSV)", type=["csv"])
     if archivo:
-        st.info("Archivo recibido. Mañana activaremos el procesamiento.")
+        st.info("Archivo recibido. Sistema listo para procesar.")
 
 elif opcion == "🤖 IA Mulato":
     st.header("🤖 Consultor Estratégico El Mulato")
     
-    # Intentamos cargar la llave desde los Secrets seguros
     try:
         api_key_openai = st.secrets["OPENAI_API_KEY"]
     except:
         st.error("🔑 Error: No se encontró la OPENAI_API_KEY en los Secrets de Streamlit.")
         st.stop()
 
-    # Traemos los datos de Neon (Recetas de 0.09 y Inventario)
-    df_inv = consultar_neon("SELECT categoria, producto, stock_actual, venta_real, alerta FROM tablero_control")
+    # Traemos los datos de Neon con las columnas correctas
+    df_inv = consultar_neon("SELECT producto, stock_actual, promedio_venta_diario, venta_real, alerta FROM tablero_control")
     df_rec = consultar_neon("SELECT nombre_plato, insumo, cantidad_gastada FROM recetas")
     
-    pregunta = st.chat_input("Ej: ¿Cuántos Gin Tonic puedo vender con lo que hay?")
+    pregunta = st.chat_input("Ej: ¿Para cuántos cocteles me alcanza el ron actual?")
     
     if pregunta:
         if df_inv is not None and df_rec is not None:
-            contexto_ia = f"STOCK:\n{df_inv.to_string()}\n\nRECETAS:\n{df_rec.to_string()}"
+            contexto_ia = f"STOCK ACTUAL:\n{df_inv.to_string()}\n\nRECETARIO (Gasto por shot/unidad):\n{df_rec.to_string()}"
             
             headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key_openai}"}
             payload = {
                 "model": "gpt-4o-mini",
                 "messages": [
-                    {"role": "system", "content": "Eres el socio analista de El Mulato. Usa los decimales 0.09 de las recetas para calcular ventas posibles."},
-                    {"role": "user", "content": f"Datos:\n{contexto_ia}\n\nPregunta: {pregunta}"}
+                    {"role": "system", "content": "Eres el socio analista de El Mulato. Calcula disponibilidad basándote en el gasto de 0.09 por shot de las recetas. Sé breve y directo."},
+                    {"role": "user", "content": f"Datos del bar:\n{contexto_ia}\n\nPregunta: {pregunta}"}
                 ],
                 "temperature": 0.2
             }
@@ -142,4 +137,4 @@ elif opcion == "🤖 IA Mulato":
                 if res.status_code == 200:
                     st.info(res.json()["choices"][0]["message"]["content"])
                 else:
-                    st.error("Revisa el saldo de tu cuenta de OpenAI (Billing).")
+                    st.error("Error: Revisa el saldo en OpenAI Billing ($5 USD min).")
