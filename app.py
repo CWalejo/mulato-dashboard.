@@ -105,10 +105,35 @@ elif opcion == "🚨 Tablero":
                     )
 
 elif opcion == "📤 Carga de Datos":
-    st.header("📤 Actualizar desde Soft")
+    st.header("📤 Actualizar desde Soft (Carga Acumulativa)")
+    st.write("Subir el reporte de ventas permite que la IA aprenda el comportamiento histórico.")
+    
     archivo = st.file_uploader("Subir reporte de Soft (CSV)", type=["csv"])
+    
     if archivo:
-        st.info("Archivo recibido. Procesamiento configurado.")
+        try:
+            # 1. Leer el CSV
+            df_nuevo = pd.read_csv(archivo)
+            
+            # Limpieza básica de columnas (ajustar nombres según tu CSV de Soft)
+            # Suponemos que el CSV tiene: producto, cantidad_vendida, fecha_inicio, fecha_fin
+            
+            st.write("预览 datos a cargar:", df_nuevo.head())
+            
+            if st.button("Confirmar Carga al Historial"):
+                # 2. Conexión para insertar
+                from sqlalchemy import create_engine
+                engine = create_engine(DB_URL)
+                
+                # 3. CARGA ACUMULATIVA (if_exists='append')
+                # Esto es lo que permite que el sistema "tenga memoria"
+                df_nuevo.to_sql('historial_ventas', engine, if_exists='append', index=False)
+                
+                st.success("✅ Datos integrados al historial exitosamente. ¡La IA ahora es más inteligente!")
+                st.balloons()
+                
+        except Exception as e:
+            st.error(f"❌ Error al procesar el CSV: {e}")
 
 elif opcion == "🤖 IA Mulato":
     st.header("🤖 Consultor Estratégico El Mulato")
@@ -116,28 +141,36 @@ elif opcion == "🤖 IA Mulato":
     try:
         api_key_openai = st.secrets["OPENAI_API_KEY"]
     except:
-        st.error("🔑 Error: No se encontró la OPENAI_API_KEY en los Secrets de Streamlit.")
+        st.error("🔑 Error: No se encontró la OPENAI_API_KEY en los Secrets.")
         st.stop()
 
-    df_inv = consultar_neon("SELECT producto, stock_actual, venta_real, alerta FROM tablero_control")
-    df_rec = consultar_neon("SELECT nombre_plato, insumo, cantidad_gastada FROM recetas")
+    # Traemos datos del TABLERO (Hoy) + HISTORIAL (Pasado) para que la IA analice
+    df_inv = consultar_neon("SELECT producto, stock_actual, promedio_venta_diario, alerta, pedido_sugerido FROM tablero_control")
+    df_historial = consultar_neon("SELECT producto, SUM(cantidad_vendida) as total_historico FROM historial_ventas GROUP BY producto")
     
-    pregunta = st.chat_input("Hazme una pregunta sobre el stock...")
+    pregunta = st.chat_input("Pregúntame sobre tendencias, qué comprar o cuánto durará el stock...")
     
     if pregunta and df_inv is not None:
-        contexto_ia = f"STOCK:\n{df_inv.to_string()}\n\nRECETAS:\n{df_rec.to_string()}"
+        # Creamos un contexto donde la IA sabe qué hay y qué ha pasado
+        contexto_ia = f"SITUACIÓN ACTUAL:\n{df_inv.to_string()}\n\nRESUMEN HISTÓRICO:\n{df_historial.to_string()}"
         
         headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key_openai}"}
         payload = {
             "model": "gpt-4o-mini",
             "messages": [
-                {"role": "system", "content": "Eres el analista de El Mulato. Usa los 0.09 de las recetas para calcular disponibilidad."},
-                {"role": "user", "content": f"Datos:\n{contexto_ia}\n\nPregunta: {pregunta}"}
+                {"role": "system", "content": """Eres el Director de Operaciones de El Mulato. 
+                Tu objetivo es evitar que se queden sin stock y optimizar compras.
+                Analiza el historial para detectar qué días se vende más.
+                Si te preguntan 'qué comprar', prioriza los productos en alerta 🔴 y usa el pedido_sugerido."""},
+                {"role": "user", "content": f"Datos del Negocio:\n{contexto_ia}\n\nPregunta del dueño: {pregunta}"}
             ],
-            "temperature": 0.2
+            "temperature": 0.3
         }
         
-        with st.spinner("Analizando..."):
+        with st.spinner("Consultando con el cerebro del negocio..."):
             res = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
             if res.status_code == 200:
-                st.info(res.json()["choices"][0]["message"]["content"])
+                respuesta = res.json()["choices"][0]["message"]["content"]
+                st.info(respuesta)
+            else:
+                st.error("Error al conectar con el cerebro de la IA.")
