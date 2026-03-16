@@ -150,19 +150,25 @@ elif opcion == "🤖 IA Mulato":
             "temperature": 0.3
         }
         
-        with st.spinner("Consultando con el cerebro del negocio..."):
+        with st.spinner("Consultando con el cerebro del negocio (Analizando historial)..."):
             try:
-                res = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload, timeout=15)
+                # HEMOS SUBIDO EL TIMEOUT A 60 SEGUNDOS PARA EVITAR EL ERROR DE LECTURA
+                res = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload, timeout=60)
                 
                 if res.status_code == 200:
                     st.info(res.json()["choices"][0]["message"]["content"])
-                # --- DIAGNÓSTICO INTELIGENTE ---
+                
+                # --- DIAGNÓSTICO INTELIGENTE SI ALGO FALLA ---
                 elif res.status_code == 401:
-                    st.error("🚫 Error 401: API Key inválida o revocada. Revisa tus Secrets.")
+                    st.error("🚫 Error 401: La API Key no sirve. Revisa que la pegaste bien en los Secrets.")
                 elif res.status_code == 429:
-                    st.error("💸 Error 429: Sin saldo en OpenAI o límite de cuota excedido.")
+                    st.error("💸 Error 429: Sin saldo en OpenAI. ¡Verifica el dashboard de pagos!")
+                elif res.status_code == 500:
+                    st.error("🏢 Error 500: Los servidores de OpenAI están saturados. Intenta en un minuto.")
                 else:
                     st.error(f"⚠️ Error {res.status_code}: {res.text}")
                     
+            except requests.exceptions.Timeout:
+                st.error("⏳ La IA se tardó más de 1 minuto en pensar. Intenta hacer una pregunta más específica.")
             except Exception as e:
                 st.error(f"☢️ Error de conexión: {e}")
