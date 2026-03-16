@@ -141,13 +141,23 @@ elif opcion == "🤖 IA Mulato":
         contexto_ia = f"SITUACIÓN ACTUAL:\n{df_inv.to_string()}\n\nRESUMEN HISTÓRICO:\n{df_historial.to_string()}"
         
         headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key_openai}"}
-        payload = {
+       payload = {
             "model": "gpt-4o-mini",
             "messages": [
-                {"role": "system", "content": "Eres el Director de Operaciones de El Mulato. Analiza stock y ventas para optimizar compras."},
+                {
+                    "role": "system", 
+                    "content": """Eres el Director de Operaciones de El Mulato Cabaret, un gastrobar de alto volumen en Cali. 
+                    Tu enfoque no es el de un restaurante familiar, sino el de un centro de espectáculos y rumba.
+                    
+                    REGLAS DE ANÁLISIS:
+                    1. Prioriza el inventario de licores (botellas, medias, shots) y pasantes (tónica, soda), que son el motor del negocio.
+                    2. Entiende que los picos de venta son extremos durante los shows y fines de semana.
+                    3. Si el stock de un licor líder (como Aguardiente o Tequila) está bajo, sé enfático en la alerta.
+                    4. Tus recomendaciones deben ser estratégicas: optimizar compras para eventos masivos y evitar quiebres de stock en plena rumba."""
+                },
                 {"role": "user", "content": f"Datos del Negocio:\n{contexto_ia}\n\nPregunta: {pregunta}"}
             ],
-            "temperature": 0.3
+            "temperature": 0.4 # Un poquito más de creatividad para estrategias de venta
         }
         
         with st.spinner("Consultando con el cerebro del negocio (Analizando historial)..."):
