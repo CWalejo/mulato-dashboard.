@@ -141,7 +141,8 @@ elif opcion == "🤖 IA Mulato":
         contexto_ia = f"SITUACIÓN ACTUAL:\n{df_inv.to_string()}\n\nRESUMEN HISTÓRICO:\n{df_historial.to_string()}"
         
         headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key_openai}"}
-       payload = {
+        
+        payload = {
             "model": "gpt-4o-mini",
             "messages": [
                 {
@@ -157,28 +158,25 @@ elif opcion == "🤖 IA Mulato":
                 },
                 {"role": "user", "content": f"Datos del Negocio:\n{contexto_ia}\n\nPregunta: {pregunta}"}
             ],
-            "temperature": 0.4 # Un poquito más de creatividad para estrategias de venta
+            "temperature": 0.4
         }
         
-        with st.spinner("Consultando con el cerebro del negocio (Analizando historial)..."):
+        with st.spinner("🧠 El cerebro de El Mulato está analizando los datos..."):
             try:
-                # HEMOS SUBIDO EL TIMEOUT A 60 SEGUNDOS PARA EVITAR EL ERROR DE LECTURA
                 res = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload, timeout=60)
                 
                 if res.status_code == 200:
                     st.info(res.json()["choices"][0]["message"]["content"])
-                
-                # --- DIAGNÓSTICO INTELIGENTE SI ALGO FALLA ---
                 elif res.status_code == 401:
-                    st.error("🚫 Error 401: La API Key no sirve. Revisa que la pegaste bien en los Secrets.")
+                    st.error("🚫 Error 401: La API Key no sirve. Revisa los Secrets.")
                 elif res.status_code == 429:
-                    st.error("💸 Error 429: Sin saldo en OpenAI. ¡Verifica el dashboard de pagos!")
+                    st.error("💸 Error 429: Sin saldo en OpenAI. ¡Verifica el dashboard!")
                 elif res.status_code == 500:
-                    st.error("🏢 Error 500: Los servidores de OpenAI están saturados. Intenta en un minuto.")
+                    st.error("🏢 Error 500: Servidores de OpenAI saturados.")
                 else:
                     st.error(f"⚠️ Error {res.status_code}: {res.text}")
                     
             except requests.exceptions.Timeout:
-                st.error("⏳ La IA se tardó más de 1 minuto en pensar. Intenta hacer una pregunta más específica.")
+                st.error("⏳ El cerebro se tomó más de 1 minuto. Intenta ser más específico.")
             except Exception as e:
                 st.error(f"☢️ Error de conexión: {e}")
