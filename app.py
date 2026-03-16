@@ -123,7 +123,7 @@ elif opcion == "📤 Carga de Datos":
         except Exception as e:
             st.error(f"❌ Error al procesar el CSV: {e}")
 
-elif opcion == "🧠 IA Mulato":
+elif opcion == "🤖 IA Mulato":
     st.header("🧠 Consultor Estratégico El Mulato")
     
     try:
