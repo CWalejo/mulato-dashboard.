@@ -91,7 +91,6 @@ elif opcion == "🚨 Tablero":
                         df_cat, 
                         use_container_width=True, 
                         hide_index=True,
-                        # AQUI AGREGAMOS LA COLUMNA DE PROMEDIO AL ORDEN VISUAL
                         column_order=("alerta", "producto", "stock_actual", "venta_real", "promedio_venta_diario", "pedido_sugerido"),
                         column_config={
                             "alerta": "Estado",
@@ -117,7 +116,6 @@ elif opcion == "📤 Carga de Datos":
             if st.button("Confirmar Carga al Historial"):
                 from sqlalchemy import create_engine
                 engine = create_engine(DB_URL)
-                # CARGA ACUMULATIVA
                 df_nuevo.to_sql('historial_ventas', engine, if_exists='append', index=False)
                 st.success("✅ Datos integrados al historial exitosamente.")
                 st.balloons()
@@ -153,8 +151,18 @@ elif opcion == "🤖 IA Mulato":
         }
         
         with st.spinner("Consultando con el cerebro del negocio..."):
-            res = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
-            if res.status_code == 200:
-                st.info(res.json()["choices"][0]["message"]["content"])
-            else:
-                st.error("Error al conectar con el cerebro de la IA.")
+            try:
+                res = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload, timeout=15)
+                
+                if res.status_code == 200:
+                    st.info(res.json()["choices"][0]["message"]["content"])
+                # --- DIAGNÓSTICO INTELIGENTE ---
+                elif res.status_code == 401:
+                    st.error("🚫 Error 401: API Key inválida o revocada. Revisa tus Secrets.")
+                elif res.status_code == 429:
+                    st.error("💸 Error 429: Sin saldo en OpenAI o límite de cuota excedido.")
+                else:
+                    st.error(f"⚠️ Error {res.status_code}: {res.text}")
+                    
+            except Exception as e:
+                st.error(f"☢️ Error de conexión: {e}")
