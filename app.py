@@ -123,8 +123,8 @@ elif opcion == "📤 Carga de Datos":
         except Exception as e:
             st.error(f"❌ Error al procesar el CSV: {e}")
 
-elif opcion == "🤖 IA Mulato":
-    st.header("🤖 Consultor Estratégico El Mulato")
+elif opcion == "🧠 IA Mulato":
+    st.header("🧠 Consultor Estratégico El Mulato")
     
     try:
         api_key_openai = st.secrets["OPENAI_API_KEY"]
